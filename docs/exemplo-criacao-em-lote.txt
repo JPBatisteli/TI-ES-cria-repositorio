@@ -1,0 +1,82 @@
+# =============================================================================
+# CRIAÇÃO EM LOTE - Trabalhos Interdisciplinares
+# =============================================================================
+#
+# Este arquivo cria um repositório para cada grupo da turma. Preencha-o, salve
+# como .txt e envie na aba "Criação em lote".
+#
+# COMO PREENCHER
+#   - Cada linha tem o formato  Rótulo: valor
+#   - Linhas começadas por # são comentários e podem ser apagadas
+#   - Linhas em branco são opcionais, servem apenas para facilitar a leitura
+#   - Um novo grupo começa sempre numa linha "Repositorio:"
+#
+# UM ARQUIVO POR TURMA
+#   A disciplina e o código do cabeçalho valem para todos os grupos abaixo.
+#   Para outra turma, use outro arquivo.
+#
+# O QUE A APLICAÇÃO FAZ COM CADA GRUPO
+#   - Cria o repositório, com o nome já no padrão da Engenharia de Software
+#   - Cria uma equipe no GitHub com o nome informado em "Grupo:"
+#   - Torna essa equipe administradora do repositório
+#   - Adiciona os alunos de "Membros:" à equipe
+#
+# ANTES DE ENVIAR
+#   - Os alunos precisam já pertencer à organização do campus. Quem não
+#     pertencer será apenas listado no relatório, sem receber acesso.
+#   - "Membros:" recebe o nome de usuário do GitHub, não o nome da pessoa.
+#     O "@" é opcional: tanto "ana-souza" quanto "@ana-souza" funcionam.
+#   - O campus e o período letivo NÃO vão neste arquivo: o campus é escolhido
+#     na tela e o período é determinado pela data.
+#
+# =============================================================================
+
+
+# ----- CABEÇALHO DA TURMA ----------------------------------------------------
+# TI:      disciplina da turma, de TI1 a TI6
+# Codigo:  código da turma no sistema acadêmico, apenas dígitos
+
+TI: TI1
+Codigo: 2401100
+
+
+# ----- GRUPOS ----------------------------------------------------------------
+# Repositorio:  nome do projeto (acentos e espaços são convertidos
+#               automaticamente: "Brechó Re-Use" vira "brecho-re-use")
+# Grupo:        nome da equipe no GitHub
+# Membros:      nomes de usuário separados por vírgula
+
+Repositorio: Adota Pet
+Grupo: Grupo 1
+Membros: ana-souza, bruno-lima, carla-dias
+
+Repositorio: Brechó Re-Use
+Grupo: Grupo 2
+Membros: daniel-costa, eduarda-ramos, felipe-nunes
+
+Repositorio: Fabiana Móveis
+Grupo: Grupo 3
+Membros: gabriela-pinto, henrique-alves
+
+# Quando a equipe for grande, "Membros:" pode ser repetido:
+Repositorio: Lar Dorcas
+Grupo: Grupo 4
+Membros: isabela-freitas, joao-mendes, karina-lopes
+Membros: lucas-teixeira, mariana-rocha
+
+
+# ----- OBSERVAÇÕES -----------------------------------------------------------
+#
+# RÓTULOS EQUIVALENTES (use o que preferir)
+#   TI:           ou  Disciplina:
+#   Codigo:       ou  Código:
+#   Repositorio:  ou  Repositório:
+#   Grupo:        ou  Equipe:
+#   Membros:      ou  Alunos:
+#
+# Os membros também podem ser separados por ponto e vírgula.
+#
+# A aplicação mostra uma prévia com os nomes finais dos repositórios antes de
+# criar qualquer coisa. Confira essa lista antes de confirmar.
+#
+# =============================================================================
