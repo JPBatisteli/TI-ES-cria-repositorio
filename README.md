@@ -242,6 +242,10 @@ Membros: joao-silva, maria-dev
 O campus é escolhido na própria aba, não no arquivo, porque é ele que determina a
 organização. O ano e o semestre vêm do período letivo em vigor.
 
+A visibilidade também é definida na aba e vale para todos os grupos do arquivo. Os
+repositórios do lote são criados **privados por padrão**; a opção pode ser desmarcada
+para criá-los públicos.
+
 O arquivo [`docs/exemplo-criacao-em-lote.txt`](docs/exemplo-criacao-em-lote.txt) traz um
 exemplo pronto, comentado com as instruções de preenchimento. É o mesmo arquivo
 oferecido pelo botão **Baixar modelo comentado** na interface, e os testes garantem que
@@ -268,6 +272,51 @@ novo** força a reconsulta, útil depois de corrigir algo diretamente no GitHub.
 O custo é de uma consulta por repositório mais uma por aluno que não esteja na
 organização: as listas de membros e de equipes são carregadas uma única vez, e alunos
 repetidos entre grupos são consultados apenas uma vez.
+
+### Limites de requisição do GitHub
+
+O GitHub impõe **80 requisições de escrita por minuto** e 500 por hora. Uma turma
+consome `3 × grupos + alunos` escritas — 10 grupos de 6 alunos dão 90, acima do teto
+por minuto.
+
+A aplicação lida com isso de duas formas:
+
+**Prevenção.** As requisições de escrita são espaçadas em 0,8 segundo, o que mantém o
+ritmo em 75 por minuto — abaixo do teto. O pior caso (10 grupos de 6 alunos, 90
+escritas) passa a levar cerca de 1min15 em vez de estourar o limite. As consultas não
+são afetadas.
+
+**Reação.** Se ainda assim o limite for atingido, a aplicação **aguarda e repete
+automaticamente**: respeita o cabeçalho `Retry-After` devolvido pela API ou, na
+ausência dele, espera 30 segundos. São até três tentativas por requisição, com aviso
+na tela durante cada espera.
+
+Os resultados são gravados **a cada repositório concluído**, e não ao final. Se a
+execução for interrompida — queda de conexão, página recarregada —, o professor
+continua enxergando o que já foi criado, com um aviso indicando quantos dos grupos
+chegaram a ser processados.
+
+### Retomada de um lote interrompido
+
+Basta **enviar o mesmo arquivo de novo**, sem editá-lo. A verificação distingue duas
+situações:
+
+| Situação | Efeito |
+|---|---|
+| O repositório já existe | O grupo é dado por concluído e **ignorado**, sem bloquear os demais |
+| Nome de usuário inválido, conta inexistente, aluno fora da organização, equipe em uso sem repositório correspondente | **Bloqueia** a criação até ser corrigido |
+
+O botão passa a indicar o que resta — *"Criar os 7 repositórios restantes"* — e apenas
+os grupos pendentes são enviados.
+
+Um caso merece atenção: se um repositório existe **sem a equipe correspondente**, o
+lote provavelmente foi interrompido no meio daquele grupo, e os alunos podem não ter
+recebido acesso. Como a retomada ignora repositórios existentes, esses grupos são
+sinalizados à parte para conferência pela aba de criação individual.
+
+Como o GitHub usa o mesmo código 403 para excesso de requisições e para falta de
+permissão, a distinção é feita pelos cabeçalhos e pela mensagem da resposta — evitando
+que o professor investigue o token quando o problema é apenas de ritmo.
 
 ### Comportamento
 

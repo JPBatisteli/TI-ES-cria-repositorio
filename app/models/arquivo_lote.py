@@ -235,7 +235,7 @@ class ArquivoLote:
             else:
                 vistos[chave] = grupo.linha
 
-    def montar_solicitacoes(self, campus: Campus) -> List[NovoRepositorio]:
+    def montar_solicitacoes(self, campus: Campus, privado: bool = True) -> List[NovoRepositorio]:
         """
         Converte os grupos lidos em solicitações de criação de repositório.
 
@@ -244,6 +244,7 @@ class ArquivoLote:
 
         Args:
             campus (Campus): Campus selecionado pelo professor.
+            privado (bool): Indica se os repositórios devem ser criados como privados.
 
         Returns:
             List[NovoRepositorio]: Solicitações prontas para serem criadas.
@@ -254,6 +255,7 @@ class ArquivoLote:
                 disciplina=self.disciplina,
                 codigo_disciplina=self.codigo_disciplina,
                 nome_projeto=grupo.nome_repositorio,
+                privado=privado,
                 alunos=list(grupo.membros),
                 criar_equipe=True,
                 nome_equipe_personalizado=grupo.nome_grupo

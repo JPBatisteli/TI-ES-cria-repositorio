@@ -259,3 +259,26 @@ class TestArquivoDeExemplo:
     def test_o_modelo_oferecido_na_interface_e_o_arquivo_de_exemplo(self):
         from app.views.criacao_lote_view import ARQUIVO_DE_EXEMPLO, carregar_modelo_de_arquivo
         assert carregar_modelo_de_arquivo() == ARQUIVO_DE_EXEMPLO.read_text(encoding="utf-8")
+
+
+class TestVisibilidade:
+
+    def test_repositorios_do_lote_sao_privados_por_padrao(self):
+        arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
+
+        for solicitacao in arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico")):
+            assert solicitacao.privado is True
+
+    def test_visibilidade_pode_ser_alterada_para_publico(self):
+        arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"), privado=False)
+
+        for solicitacao in solicitacoes:
+            assert solicitacao.privado is False
+
+    def test_a_visibilidade_vale_para_todos_os_grupos(self):
+        arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Lourdes"), privado=True)
+
+        assert len(solicitacoes) == 2
+        assert all(solicitacao.privado for solicitacao in solicitacoes)

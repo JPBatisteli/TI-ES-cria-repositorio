@@ -17,13 +17,20 @@ class CriacaoRepositorioController:
     na organização do campus e, por fim, solicitar a criação ao GithubService.
     """
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(
+            self,
+            token: Optional[str] = None,
+            ao_aguardar: Optional[Callable[[int, int], None]] = None
+    ):
         """
         Args:
             token (Optional[str]): Token pessoal do GitHub. Se não for informado,
                                    é usado o token definido no arquivo .env.
+            ao_aguardar (Optional[Callable]): Função chamada quando a aplicação precisa
+                                              aguardar por excesso de requisições,
+                                              recebendo os segundos e a tentativa.
         """
-        self.github_service = GithubService(token=token)
+        self.github_service = GithubService(token=token, ao_aguardar=ao_aguardar)
 
     def criar_repositorio(self, novo_repositorio: NovoRepositorio) -> ResultadoCriacao:
         """

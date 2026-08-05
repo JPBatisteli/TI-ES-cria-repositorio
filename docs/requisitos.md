@@ -58,6 +58,18 @@
 - **RF39.** O sistema deve habilitar a criação em lote somente quando nenhum grupo apresentar impedimento.
 - **RF40.** O sistema deve exibir os impedimentos por grupo e permitir que a verificação seja refeita sob demanda.
 - **RF41.** O sistema deve sugerir a conferência do campus quando nenhum aluno do arquivo pertencer à organização selecionada.
+- **RF42.** O sistema deve permitir definir a visibilidade dos repositórios criados em lote, valendo para todos os grupos do arquivo, adotando repositórios privados como padrão.
+- **RF43.** O sistema deve identificar as respostas em que o GitHub recusa a requisição por excesso de chamadas, distinguindo-as das recusas por falta de permissão.
+- **RF44.** O sistema deve repetir automaticamente a requisição recusada por excesso de chamadas, aguardando o tempo indicado pelo cabeçalho `Retry-After` ou, na sua ausência, 30 segundos.
+- **RF45.** O sistema deve informar o professor durante a espera, indicando os segundos restantes e a tentativa em curso.
+- **RF46.** O sistema deve desistir após três tentativas, exibindo mensagem que esclareça tratar-se de limite de requisições, e não de permissão.
+- **RF47.** O sistema deve espaçar as requisições de escrita de modo a manter o ritmo abaixo do limite do GitHub, sem afetar as consultas.
+- **RF48.** O sistema deve registrar o resultado de cada repositório assim que ele é concluído, preservando o registro caso a execução seja interrompida.
+- **RF49.** O sistema deve informar quantos repositórios chegaram a ser processados quando a criação em lote for interrompida antes do fim.
+- **RF50.** O sistema deve permitir retomar um lote interrompido a partir do mesmo arquivo, sem exigir a sua edição.
+- **RF51.** Na retomada, os grupos cujo repositório já existe devem ser ignorados sem bloquear a criação dos demais.
+- **RF52.** Os problemas que exigem correção — nome de usuário inválido, conta inexistente, aluno fora da organização e equipe já em uso sem repositório correspondente — devem continuar bloqueando a criação.
+- **RF53.** O sistema deve sinalizar os grupos cujo repositório existe sem a equipe correspondente, por indicarem criação interrompida no meio do grupo.
 
 ## Requisitos Não Funcionais (RNF)
 

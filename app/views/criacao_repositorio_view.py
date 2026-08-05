@@ -351,10 +351,20 @@ class CriacaoRepositorioView:
             st.error("Informe o token do GitHub na barra lateral para criar o repositório.")
             return
 
-        controller = CriacaoRepositorioController(token=self.token)
+        aviso = st.empty()
+
+        def ao_aguardar(segundos: int, tentativa: int):
+            aviso.warning(
+                f"O GitHub limitou o número de requisições. Aguardando {segundos} segundos "
+                f"antes de repetir (tentativa {tentativa})."
+            )
+
+        controller = CriacaoRepositorioController(token=self.token, ao_aguardar=ao_aguardar)
 
         with st.spinner(f"Criando o repositório '{novo_repositorio.nome}'..."):
             resultado = controller.criar_repositorio(novo_repositorio)
+
+        aviso.empty()
 
         if resultado.sucesso:
             st.success(f"Repositório **{novo_repositorio.nome}** criado com sucesso.")

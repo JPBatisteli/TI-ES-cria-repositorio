@@ -1,0 +1,14 @@
+TI: TI6
+Codigo: 9623100
+
+Repositorio: teste_em_lote_6
+Grupo: grupo-teste-TI6-6
+Membros: marcelacamposm, BGLuis, jaoppb, gsantss, PortoPedro
+
+Repositorio: teste_em_lote_7
+Grupo: grupo-teste-TI6-6
+Membros: DevMiguelDiniz, Henriquelobo5, joaomarcelocpa, RafaelFFranco, gabrielchagas13
+
+Repositorio: teste_em_lote_8
+Grupo: grupo-teste-TI6-6
+Membros: IsabellaLDias, LuidiC, viniciusgomesrod, TiagoBoavAmaral

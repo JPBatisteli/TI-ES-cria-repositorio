@@ -58,6 +58,7 @@ class CriacaoLoteView:
     def __init__(self):
         self.campus = None
         self.token = ""
+        self.privado = True
 
     @staticmethod
     def _exibir_instrucoes():
@@ -101,6 +102,13 @@ class CriacaoLoteView:
 
         st.caption(f"Organização no GitHub: [{self.campus.organizacao}]({self.campus.url_organizacao})")
 
+        self.privado = st.checkbox(
+            "Criar os repositórios como privados",
+            value=True,
+            key="privado_lote",
+            help="Vale para todos os repositórios do arquivo."
+        )
+
     @staticmethod
     def _exibir_erros(arquivo: ArquivoLote):
         """Exibe os problemas que impedem o processamento do arquivo."""
@@ -131,6 +139,7 @@ class CriacaoLoteView:
             {
                 "Repositório": solicitacao.nome,
                 "Equipe": solicitacao.nome_equipe,
+                "Visibilidade": "Privado" if solicitacao.privado else "Público",
                 "Alunos": len(solicitacao.alunos_unicos),
                 "Avisos": "; ".join(grupo.avisos),
             }
@@ -157,6 +166,13 @@ class CriacaoLoteView:
         criados = [resultado for resultado in resultados if resultado.sucesso]
 
         st.subheader("Resultado")
+
+        if len(resultados) < st.session_state.get("total_do_lote", len(resultados)):
+            st.warning(
+                f"A criação foi interrompida: {len(resultados)} de "
+                f"{st.session_state['total_do_lote']} repositórios chegaram a ser processados. "
+                "Os demais não foram criados — envie novamente o arquivo apenas com eles."
+            )
 
         coluna1, coluna2, coluna3 = st.columns(3)
         with coluna1:
@@ -212,6 +228,31 @@ class CriacaoLoteView:
             "adicionados depois, pela aba de criação individual ou pelo GitHub."
         )
         st.dataframe(pd.DataFrame(pendencias), use_container_width=True, hide_index=True)
+
+    @staticmethod
+    def _rotulo_do_botao(verificacao: VerificacaoLote) -> str:
+        """
+        Monta o rótulo do botão de criação conforme o que resta a fazer.
+
+        Args:
+            verificacao (VerificacaoLote): Resultado da verificação.
+
+        Returns:
+            str: Texto do botão.
+        """
+        quantidade = len(verificacao.grupos_a_criar)
+
+        if quantidade == 0:
+            return "Nada a criar"
+
+        if verificacao.e_retomada:
+            if quantidade == 1:
+                return "Criar o repositório restante"
+            return f"Criar os {quantidade} repositórios restantes"
+
+        if quantidade == 1:
+            return "Criar 1 repositório"
+        return f"Criar {quantidade} repositórios"
 
     def _obter_verificacao(self, conteudo: str, solicitacoes: List[NovoRepositorio]) -> VerificacaoLote:
         """
@@ -275,17 +316,45 @@ class CriacaoLoteView:
 
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-        if verificacao.apto:
+        if verificacao.grupos_com_problema:
+            st.error(
+                f"{len(verificacao.grupos_com_problema)} grupo(s) exigem correção. "
+                "Ajuste o arquivo — ou a situação no GitHub — e envie novamente."
+            )
+        elif verificacao.e_retomada:
+            ja_criados = len(verificacao.grupos_ja_criados)
+            a_criar = len(verificacao.grupos_a_criar)
+
+            existentes = (
+                "1 grupo já existe e será ignorado" if ja_criados == 1
+                else f"{ja_criados} grupos já existem e serão ignorados"
+            )
+            restantes = (
+                "o repositório restante" if a_criar == 1
+                else f"os {a_criar} repositórios restantes"
+            )
+
+            st.info(f"{existentes}. Serão criados apenas {restantes} — não é preciso editar o arquivo.")
+        elif verificacao.pode_criar:
             st.success(
                 "Todos os grupos foram verificados e não há impedimentos. "
                 "A criação está liberada."
             )
-            return
+        else:
+            st.warning(
+                "Todos os grupos do arquivo já existem na organização. Não há nada a criar."
+            )
 
-        st.error(
-            f"{len(verificacao.grupos_com_impedimento)} grupo(s) com impedimento. "
-            "Corrija o arquivo — ou a situação no GitHub — e envie novamente."
-        )
+        if verificacao.grupos_possivelmente_incompletos:
+            nomes = ", ".join(
+                grupo.solicitacao.nome for grupo in verificacao.grupos_possivelmente_incompletos
+            )
+            st.warning(
+                f"Estes repositórios já existem, mas estão sem equipe: {nomes}. "
+                "Provavelmente a criação foi interrompida no meio deles. Como serão "
+                "ignorados na retomada, confira pela aba de criação individual se os "
+                "alunos receberam acesso."
+            )
 
         if verificacao.nenhum_aluno_encontrado:
             st.info(
@@ -300,20 +369,36 @@ class CriacaoLoteView:
         Args:
             solicitacoes (List[NovoRepositorio]): Solicitações a serem criadas.
         """
-        controller = CriacaoRepositorioController(token=self.token)
-        barra = st.progress(0.0, text="Iniciando...")
+        barra = st.progress(0.0, text=f"Criando {len(solicitacoes)} repositórios — não feche a página.")
+        aviso = st.empty()
+
+        # A lista é preenchida a cada repositório concluído, e não ao final: se a
+        # execução for interrompida, o professor ainda enxerga o que já foi criado.
+        st.session_state["resultados_lote"] = []
+        st.session_state["total_do_lote"] = len(solicitacoes)
+
+        def ao_aguardar(segundos: int, tentativa: int):
+            aviso.warning(
+                f"O GitHub limitou o número de requisições. Aguardando {segundos} segundos "
+                f"antes de repetir (tentativa {tentativa}). A criação continua em seguida — "
+                "não feche nem recarregue a página."
+            )
 
         def ao_concluir(indice: int, resultado: ResultadoCriacao):
+            st.session_state["resultados_lote"].append(resultado)
+
             concluidos = indice + 1
+            aviso.empty()
             barra.progress(
                 concluidos / len(solicitacoes),
                 text=f"{concluidos} de {len(solicitacoes)}: {resultado.novo_repositorio.nome}"
             )
 
-        resultados = controller.criar_repositorios_em_lote(solicitacoes, ao_concluir_cada=ao_concluir)
-        barra.empty()
+        controller = CriacaoRepositorioController(token=self.token, ao_aguardar=ao_aguardar)
 
-        st.session_state["resultados_lote"] = resultados
+        controller.criar_repositorios_em_lote(solicitacoes, ao_concluir_cada=ao_concluir)
+        barra.empty()
+        aviso.empty()
 
         # A verificação anterior deixou de valer: os repositórios e as equipes que
         # constavam como disponíveis acabaram de ser criados.
@@ -354,7 +439,7 @@ class CriacaoLoteView:
             self._exibir_erros(arquivo)
             return
 
-        solicitacoes = arquivo.montar_solicitacoes(self.campus)
+        solicitacoes = arquivo.montar_solicitacoes(self.campus, privado=self.privado)
         self._exibir_previa(arquivo, solicitacoes)
 
         if not self.token:
@@ -367,10 +452,9 @@ class CriacaoLoteView:
         verificacao = self._obter_verificacao(conteudo, solicitacoes)
         self._exibir_verificacao(verificacao)
 
-        rotulo = (
-            "Criar 1 repositório" if len(solicitacoes) == 1
-            else f"Criar {len(solicitacoes)} repositórios"
-        )
+        # Numa retomada, apenas os grupos ainda não criados são enviados.
+        pendentes = verificacao.solicitacoes_a_criar()
+        rotulo = self._rotulo_do_botao(verificacao)
 
         coluna_criar, coluna_reverificar = st.columns([4, 1])
 
@@ -380,8 +464,8 @@ class CriacaoLoteView:
                 type="primary",
                 use_container_width=True,
                 icon=":material/library_add:",
-                disabled=not verificacao.apto,
-                help=None if verificacao.apto else "Resolva os impedimentos para liberar a criação.",
+                disabled=not verificacao.pode_criar,
+                help=None if verificacao.pode_criar else "Resolva os problemas para liberar a criação.",
                 key="criar_lote"
             )
 
@@ -398,7 +482,7 @@ class CriacaoLoteView:
             st.rerun()
 
         if criar:
-            self._criar_repositorios(solicitacoes)
+            self._criar_repositorios(pendentes)
 
         resultados = st.session_state.get("resultados_lote", [])
         if resultados:

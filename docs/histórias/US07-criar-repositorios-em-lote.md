@@ -43,6 +43,16 @@
 
 ---
 
+## Retomada
+
+Um lote interrompido é retomado enviando o mesmo arquivo novamente. Grupos cujo
+repositório já existe são dados por concluídos e ignorados; os problemas que exigem
+correção continuam bloqueando. Repositórios existentes **sem equipe** são sinalizados
+à parte, por indicarem interrupção no meio do grupo — nesse caso os alunos podem não
+ter recebido acesso, e a conferência é feita pela aba de criação individual.
+
+---
+
 ## Fora do Escopo
 
 Alunos que não pertencem à organização continuam apenas reportados, como definido na

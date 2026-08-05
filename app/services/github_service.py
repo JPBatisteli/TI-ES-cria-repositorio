@@ -1,12 +1,37 @@
-from typing import List, Optional
+import time
+from typing import Callable, List, Optional
 
 import requests
 
 from app import config
 
+# Espera adotada quando o GitHub sinaliza excesso de requisições sem informar por
+# quanto tempo aguardar.
+SEGUNDOS_DE_ESPERA_PADRAO = 30
+
+# Quantas vezes uma requisição barrada por limite é repetida antes de desistir.
+MAXIMO_DE_TENTATIVAS = 3
+
+# Métodos que criam ou alteram conteúdo, sujeitos ao limite de 80 requisições por
+# minuto imposto pelo GitHub.
+METODOS_DE_ESCRITA = frozenset({"post", "put", "patch", "delete"})
+
+# Intervalo mínimo entre requisições de escrita. Equivale a 75 por minuto, mantendo
+# margem sobre o teto de 80 e evitando o bloqueio antes que ele aconteça.
+INTERVALO_MINIMO_ENTRE_ESCRITAS = 0.8
+
 
 class GithubServiceError(Exception):
     """Erro de comunicação ou de permissão na interação com a API do GitHub."""
+
+
+class LimiteDeRequisicoesError(GithubServiceError):
+    """
+    O GitHub recusou a requisição por excesso de chamadas em pouco tempo.
+
+    É levantado apenas quando as repetições automáticas se esgotam. Distingue-se dos
+    demais erros 403 porque a causa não é falta de permissão: basta aguardar.
+    """
 
 
 class RepositorioJaExisteError(GithubServiceError):
@@ -38,19 +63,157 @@ class GithubService:
     PRIVACIDADE_EQUIPE = "closed"
     ITENS_POR_PAGINA = 100
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(
+            self,
+            token: Optional[str] = None,
+            ao_aguardar: Optional[Callable[[int, int], None]] = None,
+            intervalo_entre_escritas: Optional[float] = None
+    ):
         """
         Inicializa o serviço com o token de autenticação e configura os cabeçalhos HTTP.
 
         Args:
             token (Optional[str]): Token pessoal do GitHub. Se não for informado,
                                    é usado o token definido no arquivo .env.
+            ao_aguardar (Optional[Callable]): Função chamada antes de cada espera por
+                                              excesso de requisições, recebendo os
+                                              segundos de espera e o número da tentativa.
+                                              Permite informar o professor na interface.
+            intervalo_entre_escritas (Optional[float]): Segundos de intervalo mínimo entre
+                                                        requisições de escrita. Zero desliga
+                                                        o controle de ritmo.
         """
         self.token = token or config.GITHUB_TOKEN
+        self.ao_aguardar = ao_aguardar
+        self.intervalo_entre_escritas = (
+            INTERVALO_MINIMO_ENTRE_ESCRITAS if intervalo_entre_escritas is None
+            else intervalo_entre_escritas
+        )
+        self._instante_da_ultima_escrita = 0.0
         self.headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"token {self.token}"
         }
+
+    def _controlar_ritmo(self, metodo: str):
+        """
+        Espaça as requisições de escrita para não ultrapassar o limite do GitHub.
+
+        O GitHub permite 80 requisições de criação de conteúdo por minuto. Uma turma
+        consome três escritas por grupo mais uma por aluno, o que ultrapassa esse teto
+        numa turma de porte médio. Espaçar as chamadas evita o bloqueio em vez de
+        reagir a ele.
+
+        As consultas não são afetadas: só os métodos de escrita entram na conta.
+
+        Args:
+            metodo (str): Método HTTP em minúsculas.
+        """
+        if metodo not in METODOS_DE_ESCRITA or self.intervalo_entre_escritas <= 0:
+            return
+
+        decorrido = time.monotonic() - self._instante_da_ultima_escrita
+        restante = self.intervalo_entre_escritas - decorrido
+
+        if 0 < restante <= self.intervalo_entre_escritas:
+            time.sleep(restante)
+
+        self._instante_da_ultima_escrita = time.monotonic()
+
+    def _executar(self, metodo: str, url: str, **parametros) -> requests.Response:
+        """
+        Executa uma requisição, repetindo-a quando barrada por excesso de chamadas.
+
+        O GitHub responde 403 ou 429 quando os limites de requisição são ultrapassados.
+        Nesse caso a requisição é repetida após a espera indicada pela própria API — ou
+        após uma espera padrão, quando ela não informa o tempo.
+
+        Args:
+            metodo (str): Método HTTP em minúsculas ('get', 'post' ou 'put').
+            url (str): URL completa da requisição.
+            **parametros: Demais argumentos repassados ao requests.
+
+        Returns:
+            requests.Response: Resposta da última tentativa realizada.
+        """
+        funcao = getattr(requests, metodo)
+
+        for tentativa in range(1, MAXIMO_DE_TENTATIVAS + 1):
+            self._controlar_ritmo(metodo)
+            resposta = funcao(url, headers=self.headers, **parametros)
+
+            if tentativa == MAXIMO_DE_TENTATIVAS or not self._e_limite_de_requisicoes(resposta):
+                return resposta
+
+            segundos = self._segundos_de_espera(resposta)
+
+            if self.ao_aguardar:
+                self.ao_aguardar(segundos, tentativa)
+
+            time.sleep(segundos)
+
+        return resposta
+
+    @staticmethod
+    def _e_limite_de_requisicoes(resposta: requests.Response) -> bool:
+        """
+        Identifica se a resposta indica excesso de requisições, e não falta de permissão.
+
+        O GitHub usa 403 para os dois casos, por isso a distinção depende dos cabeçalhos
+        e da mensagem devolvida.
+
+        Args:
+            resposta (requests.Response): Resposta devolvida pela API.
+
+        Returns:
+            bool: True se a recusa for por limite de requisições.
+        """
+        if resposta.status_code not in (403, 429):
+            return False
+
+        cabecalhos = getattr(resposta, "headers", {}) or {}
+
+        if cabecalhos.get("Retry-After"):
+            return True
+        if cabecalhos.get("x-ratelimit-remaining") == "0":
+            return True
+
+        mensagem = ""
+        try:
+            mensagem = (resposta.json() or {}).get("message", "")
+        except (ValueError, AttributeError):
+            mensagem = getattr(resposta, "text", "") or ""
+
+        mensagem = mensagem.lower()
+        return "rate limit" in mensagem or "abuse detection" in mensagem
+
+    @staticmethod
+    def _segundos_de_espera(resposta: requests.Response) -> int:
+        """
+        Determina quanto aguardar antes de repetir uma requisição barrada.
+
+        Respeita o cabeçalho 'Retry-After' quando presente e, na sua ausência, o
+        'x-ratelimit-reset'. Sem nenhum dos dois, adota a espera padrão.
+
+        Args:
+            resposta (requests.Response): Resposta devolvida pela API.
+
+        Returns:
+            int: Segundos a aguardar.
+        """
+        cabecalhos = getattr(resposta, "headers", {}) or {}
+
+        retry_after = str(cabecalhos.get("Retry-After", ""))
+        if retry_after.isdigit():
+            return max(1, int(retry_after))
+
+        reset = str(cabecalhos.get("x-ratelimit-reset", ""))
+        if reset.isdigit():
+            faltam = int(reset) - int(time.time())
+            if 0 < faltam <= 3600:
+                return faltam
+
+        return SEGUNDOS_DE_ESPERA_PADRAO
 
     def _tratar_erro(self, resposta: requests.Response, acao: str):
         """
@@ -61,12 +224,20 @@ class GithubService:
             acao (str): Descrição da ação que estava sendo executada.
 
         Raises:
+            LimiteDeRequisicoesError: Se a recusa for por excesso de requisições.
             RepositorioJaExisteError: Se a criação for recusada por nome duplicado.
             GithubServiceError: Nos demais casos, com a mensagem adequada ao código de status.
         """
         if resposta.status_code == 401:
             raise GithubServiceError(
                 "Token do GitHub inválido ou expirado. Verifique o token informado."
+            )
+        # Verificado antes da falta de permissão porque o GitHub usa 403 para os dois casos.
+        if self._e_limite_de_requisicoes(resposta):
+            raise LimiteDeRequisicoesError(
+                f"O GitHub recusou a operação '{acao}' por excesso de requisições, e as "
+                f"tentativas automáticas não foram suficientes. Não é problema de permissão: "
+                f"aguarde alguns minutos e repita a operação."
             )
         if resposta.status_code == 403:
             raise GithubServiceError(
@@ -123,7 +294,7 @@ class GithubService:
             GithubServiceError: Se a requisição falhar.
         """
         url = f"{self.URL_BASE}/orgs/{nome_organizacao}"
-        resposta = requests.get(url, headers=self.headers)
+        resposta = self._executar("get", url)
 
         if resposta.status_code != 200:
             self._tratar_erro(resposta, f"buscar os dados da organização '{nome_organizacao}'")
@@ -145,7 +316,7 @@ class GithubService:
             GithubServiceError: Se a requisição falhar por um motivo diferente de 404.
         """
         url = f"{self.URL_BASE}/repos/{nome_organizacao}/{nome_repositorio}"
-        resposta = requests.get(url, headers=self.headers)
+        resposta = self._executar("get", url)
 
         if resposta.status_code == 200:
             return True
@@ -187,7 +358,7 @@ class GithubService:
             "auto_init": inicializar_readme,
         }
 
-        resposta = requests.post(url, headers=self.headers, json=dados)
+        resposta = self._executar("post", url, json=dados)
 
         if resposta.status_code != 201:
             self._tratar_erro(resposta, f"criar o repositório '{nome_repositorio}'")
@@ -218,7 +389,7 @@ class GithubService:
         tem_mais_paginas = True
 
         while tem_mais_paginas:
-            resposta = requests.get(url, headers=self.headers, params=params)
+            resposta = self._executar("get", url, params=params)
 
             if resposta.status_code != 200:
                 self._tratar_erro(resposta, f"listar os membros da organização '{nome_organizacao}'")
@@ -251,7 +422,7 @@ class GithubService:
             GithubServiceError: Se a requisição falhar ou não puder ser respondida.
         """
         url = f"{self.URL_BASE}/orgs/{nome_organizacao}/members/{username}"
-        resposta = requests.get(url, headers=self.headers, allow_redirects=False)
+        resposta = self._executar("get", url, allow_redirects=False)
 
         if resposta.status_code == 204:
             return True
@@ -290,7 +461,7 @@ class GithubService:
             GithubServiceError: Se a operação falhar.
         """
         url = f"{self.URL_BASE}/repos/{nome_organizacao}/{nome_repositorio}/collaborators/{username}"
-        resposta = requests.put(url, headers=self.headers, json={"permission": permissao})
+        resposta = self._executar("put", url, json={"permission": permissao})
 
         if resposta.status_code == 201:
             return True
@@ -316,7 +487,7 @@ class GithubService:
             GithubServiceError: Se a requisição falhar por outro motivo.
         """
         url = f"{self.URL_BASE}/users/{username}"
-        resposta = requests.get(url, headers=self.headers)
+        resposta = self._executar("get", url)
 
         if resposta.status_code == 200:
             return True
@@ -345,7 +516,7 @@ class GithubService:
         tem_mais_paginas = True
 
         while tem_mais_paginas:
-            resposta = requests.get(url, headers=self.headers, params=params)
+            resposta = self._executar("get", url, params=params)
 
             if resposta.status_code != 200:
                 self._tratar_erro(resposta, f"listar as equipes da organização '{nome_organizacao}'")
@@ -388,7 +559,7 @@ class GithubService:
             "privacy": privacidade,
         }
 
-        resposta = requests.post(url, headers=self.headers, json=dados)
+        resposta = self._executar("post", url, json=dados)
 
         if resposta.status_code != 201:
             self._tratar_erro(resposta, f"criar a equipe '{nome_equipe}'")
@@ -418,7 +589,7 @@ class GithubService:
             f"{self.URL_BASE}/orgs/{nome_organizacao}/teams/{slug_equipe}"
             f"/repos/{nome_organizacao}/{nome_repositorio}"
         )
-        resposta = requests.put(url, headers=self.headers, json={"permission": permissao})
+        resposta = self._executar("put", url, json={"permission": permissao})
 
         if resposta.status_code != 204:
             self._tratar_erro(
@@ -450,7 +621,7 @@ class GithubService:
             GithubServiceError: Se a operação falhar.
         """
         url = f"{self.URL_BASE}/orgs/{nome_organizacao}/teams/{slug_equipe}/memberships/{username}"
-        resposta = requests.put(url, headers=self.headers, json={"role": papel})
+        resposta = self._executar("put", url, json={"role": papel})
 
         if resposta.status_code != 200:
             self._tratar_erro(resposta, f"adicionar '{username}' à equipe '{slug_equipe}'")

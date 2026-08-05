@@ -191,3 +191,125 @@ class TestFalhaNaVerificacao:
         controller.github_service = GithubServiceFalso()
 
         assert controller.verificar_lote([]).apto is False
+
+
+ARQUIVO_TRES_GRUPOS = """TI: TI1
+Codigo: 2401100
+
+Repositorio: Projeto A
+Grupo: Grupo A
+Membros: ana-souza
+
+Repositorio: Projeto B
+Grupo: Grupo B
+Membros: bruno-lima
+
+Repositorio: Projeto C
+Grupo: Grupo C
+Membros: carla-dias
+"""
+
+TODOS_OS_MEMBROS = ["ana-souza", "bruno-lima", "carla-dias"]
+
+
+def nomes_gerados(conteudo: str = ARQUIVO_TRES_GRUPOS):
+    """Nomes de repositório e de equipe gerados, que dependem do período letivo."""
+    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus("Coração Eucarístico"))
+    return [(s.nome, s.nome_equipe) for s in solicitacoes]
+
+
+class TestRetomadaDeLoteInterrompido:
+    """Um lote que falhou no meio deve poder continuar sem editar o arquivo."""
+
+    def test_grupos_ja_criados_nao_bloqueiam_os_restantes(self):
+        criados = [nome for nome, _ in nomes_gerados()[:2]]
+        service = GithubServiceFalso(
+            membros=TODOS_OS_MEMBROS,
+            equipes=[equipe.lower().replace(" ", "-") for _, equipe in nomes_gerados()[:2]],
+            repositorios=criados
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.pode_criar is True
+        assert verificacao.e_retomada is True
+        assert len(verificacao.grupos_ja_criados) == 2
+        assert len(verificacao.grupos_a_criar) == 1
+
+    def test_apenas_os_pendentes_sao_enviados_para_criacao(self):
+        criados = [nome for nome, _ in nomes_gerados()[:2]]
+        service = GithubServiceFalso(
+            membros=TODOS_OS_MEMBROS,
+            equipes=[equipe.lower().replace(" ", "-") for _, equipe in nomes_gerados()[:2]],
+            repositorios=criados
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        pendentes = verificacao.solicitacoes_a_criar()
+        assert [s.nome for s in pendentes] == [nomes_gerados()[2][0]]
+
+    def test_problema_real_continua_bloqueando_mesmo_com_retomada(self):
+        criados = [nome for nome, _ in nomes_gerados()[:2]]
+        # carla-dias não está na organização: problema a corrigir, não grupo concluído.
+        service = GithubServiceFalso(
+            membros=["ana-souza", "bruno-lima"],
+            contas=["carla-dias"],
+            repositorios=criados
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.pode_criar is False
+        assert len(verificacao.grupos_com_problema) == 1
+
+    def test_lote_totalmente_criado_nao_libera_a_criacao(self):
+        service = GithubServiceFalso(
+            membros=TODOS_OS_MEMBROS,
+            equipes=[equipe.lower().replace(" ", "-") for _, equipe in nomes_gerados()],
+            repositorios=[nome for nome, _ in nomes_gerados()]
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.pode_criar is False
+        assert verificacao.e_retomada is False
+        assert len(verificacao.grupos_a_criar) == 0
+
+    def test_primeira_execucao_nao_e_retomada(self):
+        service = GithubServiceFalso(membros=TODOS_OS_MEMBROS)
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.e_retomada is False
+        assert verificacao.pode_criar is True
+        assert verificacao.apto is True
+        assert len(verificacao.grupos_a_criar) == 3
+
+
+class TestGrupoIncompleto:
+    """Repositório criado sem equipe indica interrupção no meio do grupo."""
+
+    def test_repositorio_sem_equipe_e_sinalizado(self):
+        service = GithubServiceFalso(
+            membros=TODOS_OS_MEMBROS,
+            repositorios=[nomes_gerados()[0][0]]   # repositório criado, equipe não
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.grupos[0].possivelmente_incompleto is True
+        assert len(verificacao.grupos_possivelmente_incompletos) == 1
+
+    def test_grupo_completo_nao_e_sinalizado(self):
+        equipe = nomes_gerados()[0][1].lower().replace(" ", "-")
+        service = GithubServiceFalso(
+            membros=TODOS_OS_MEMBROS,
+            repositorios=[nomes_gerados()[0][0]],
+            equipes=[equipe]
+        )
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.grupos[0].possivelmente_incompleto is False
+
+    def test_equipe_ocupada_sem_repositorio_continua_sendo_problema(self):
+        equipe = nomes_gerados()[0][1].lower().replace(" ", "-")
+        service = GithubServiceFalso(membros=TODOS_OS_MEMBROS, equipes=[equipe])
+        verificacao = verificar(service, conteudo=ARQUIVO_TRES_GRUPOS)
+
+        assert verificacao.grupos[0].problemas
+        assert verificacao.pode_criar is False
