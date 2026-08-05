@@ -1,0 +1,25 @@
+# Segredos: o token nunca deve ser embutido na imagem. Ele é informado em tempo de
+# execução, por variável de ambiente ou pela barra lateral da aplicação.
+# O .env.example também fica de fora: não é usado em execução e já chegou a conter
+# um token real durante o desenvolvimento.
+.env
+.env.*
+
+# Ambientes virtuais e artefatos locais
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Controle de versão e configurações de editor
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Testes não fazem parte da imagem de execução
+tests/
+
+# Arquivos do sistema
+.DS_Store

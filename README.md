@@ -126,6 +126,54 @@ pytest
 
 ---
 
+## 🐳 Execução com Docker
+
+Alternativa a instalar Python e dependências na máquina — útil para distribuir a
+aplicação aos professores.
+
+```bash
+docker compose up --build
+```
+
+A aplicação fica em `http://localhost:8501`.
+
+### O token
+
+**O token nunca é embutido na imagem.** O `.dockerignore` exclui `.env` e `.env.example`
+justamente para isso. Há duas formas de informá-lo:
+
+```bash
+# 1. Pela variável de ambiente de quem executa
+GITHUB_TOKEN=ghp_seu_token docker compose up
+
+# 2. Sem variável nenhuma: a aplicação sobe e pede o token na barra lateral
+docker compose up
+```
+
+Se preferir usar um arquivo `.env` já existente, monte-o em tempo de execução em vez
+de copiá-lo para a imagem:
+
+```bash
+docker run --rm -p 8501:8501 -v "$(pwd)/.env:/app/.env:ro" ti-es-cria-repositorio
+```
+
+### Sem Docker Compose
+
+```bash
+docker build -t ti-es-cria-repositorio .
+docker run --rm -p 8501:8501 -e GITHUB_TOKEN=ghp_seu_token ti-es-cria-repositorio
+```
+
+### Detalhes da imagem
+
+- Base `python:3.11-slim` — a aplicação usa sintaxe de anotações que exige Python 3.10+
+- Executa como usuário sem privilégios (`streamlit`, uid 1000)
+- A pasta `docs/` acompanha a imagem porque a aba de lote lê dela o arquivo de exemplo
+- `tests/` fica de fora da imagem de execução
+- Verificação de saúde pelo endpoint `/_stcore/health` do próprio Streamlit
+
+---
+
 ## 📋 Funcionalidades
 
 - Seleção do campus, que define a organização do GitHub e a sigla do repositório

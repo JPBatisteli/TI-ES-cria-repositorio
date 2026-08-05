@@ -1,0 +1,12 @@
+services:
+  cria-repositorio:
+    build: .
+    image: ti-es-cria-repositorio
+    container_name: ti-es-cria-repositorio
+    ports:
+      - "8501:8501"
+    environment:
+      # O token é lido do ambiente de quem executa. Se não estiver definido, a
+      # aplicação sobe normalmente e pede o token na barra lateral.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    restart: unless-stopped
