@@ -21,6 +21,9 @@ class GithubServiceFalso:
         self.permissoes = []
         self.membros_da_equipe = []
         self.colaboradores = []
+        self.removidos = []
+        self.templates_usados = []
+        self.login = "prof-joao"
 
     def repositorio_existe(self, nome_organizacao, nome_repositorio):
         return False
@@ -28,6 +31,12 @@ class GithubServiceFalso:
     def criar_repositorio(self, nome_organizacao, nome_repositorio, descricao="",
                           privado=False, inicializar_readme=True):
         return {"html_url": f"https://github.com/{nome_organizacao}/{nome_repositorio}"}
+
+    def criar_repositorio_por_template(self, template_owner, template_repositorio, nome_organizacao,
+                                       nome_repositorio, descricao="", privado=False,
+                                       incluir_todas_as_branches=False):
+        self.templates_usados.append(f"{template_owner}/{template_repositorio}")
+        return self.criar_repositorio(nome_organizacao, nome_repositorio, descricao, privado)
 
     def criar_equipe(self, nome_organizacao, nome_equipe, descricao="", privacidade="closed"):
         if self.erro_ao_criar_equipe:
@@ -48,6 +57,12 @@ class GithubServiceFalso:
     def adicionar_colaborador(self, nome_organizacao, nome_repositorio, username, permissao="push"):
         self.colaboradores.append((username, permissao))
         return False
+
+    def obter_usuario_autenticado(self):
+        return self.login
+
+    def remover_membro_da_equipe(self, nome_organizacao, slug_equipe, username):
+        self.removidos.append((slug_equipe, username))
 
 
 def criar_solicitacao(usernames=(), criar_equipe=True, nome_equipe="") -> NovoRepositorio:
@@ -239,3 +254,90 @@ class TestCriacaoEmLote:
         service = GithubServiceFalso()
         assert criar_controller(service).criar_repositorios_em_lote([]) == []
         assert service.equipes_criadas == []
+
+
+class TestRemocaoDoProfessorDaEquipe:
+    """O GitHub inclui quem cria a equipe como mantenedor; a aplicação desfaz isso."""
+
+    class ServiceComRemocao(GithubServiceFalso):
+        def __init__(self, *args, erro_ao_remover="", login="prof-joao", **kwargs):
+            super().__init__(*args, **kwargs)
+            self.erro_ao_remover = erro_ao_remover
+            self.login = login
+            self.consultas_de_usuario = 0
+
+        def obter_usuario_autenticado(self):
+            self.consultas_de_usuario += 1
+            return super().obter_usuario_autenticado()
+
+        def remover_membro_da_equipe(self, nome_organizacao, slug_equipe, username):
+            if self.erro_ao_remover:
+                raise GithubServiceError(self.erro_ao_remover)
+            super().remover_membro_da_equipe(nome_organizacao, slug_equipe, username)
+
+    def test_o_professor_e_removido_da_equipe_criada(self):
+        service = self.ServiceComRemocao(membros=["ana"])
+        resultado = criar_controller(service).criar_repositorio(criar_solicitacao(["ana"]))
+
+        assert resultado.equipe
+        assert service.removidos == [(resultado.equipe, "prof-joao")]
+        assert resultado.aviso_equipe == ""
+
+    def test_a_remocao_acontece_depois_de_os_alunos_entrarem(self):
+        class ServiceOrdenado(self.ServiceComRemocao):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                self.ordem = []
+
+            def adicionar_membro_na_equipe(self, nome_organizacao, slug_equipe, username, papel="member"):
+                self.ordem.append(f"adicionou {username}")
+                return super().adicionar_membro_na_equipe(nome_organizacao, slug_equipe, username, papel)
+
+            def remover_membro_da_equipe(self, nome_organizacao, slug_equipe, username):
+                self.ordem.append(f"removeu {username}")
+                return super().remover_membro_da_equipe(nome_organizacao, slug_equipe, username)
+
+        service = ServiceOrdenado(membros=["ana", "bruno"])
+        criar_controller(service).criar_repositorio(criar_solicitacao(["ana", "bruno"]))
+
+        assert service.ordem == ["adicionou ana", "adicionou bruno", "removeu prof-joao"]
+
+    def test_falha_na_remocao_nao_invalida_a_criacao(self):
+        service = self.ServiceComRemocao(membros=["ana"], erro_ao_remover="Sem permissão.")
+        resultado = criar_controller(service).criar_repositorio(criar_solicitacao(["ana"]))
+
+        assert resultado.sucesso is True
+        assert resultado.equipe
+        assert resultado.total_alunos_adicionados == 1
+        assert "não pôde ser removido" in resultado.aviso_equipe
+
+    def test_token_sem_login_identificavel_gera_aviso(self):
+        service = self.ServiceComRemocao(membros=["ana"], login="")
+        resultado = criar_controller(service).criar_repositorio(criar_solicitacao(["ana"]))
+
+        assert resultado.sucesso is True
+        assert "não foi possível identificar o usuário" in resultado.aviso_equipe
+        assert service.removidos == []
+
+    def test_sem_equipe_nao_ha_remocao(self):
+        service = self.ServiceComRemocao(membros=["ana"])
+        criar_controller(service).criar_repositorio(criar_solicitacao(["ana"], criar_equipe=False))
+
+        assert service.removidos == []
+        assert service.consultas_de_usuario == 0
+
+    def test_equipe_que_falhou_ao_ser_criada_nao_dispara_remocao(self):
+        service = self.ServiceComRemocao(membros=["ana"], erro_ao_criar_equipe="Nome repetido.")
+        criar_controller(service).criar_repositorio(criar_solicitacao(["ana"]))
+
+        assert service.removidos == []
+
+    def test_lote_remove_o_professor_de_todas_as_equipes(self):
+        service = self.ServiceComRemocao(membros=["ana"])
+        primeira = criar_solicitacao(["ana"], nome_equipe="Grupo 1")
+        segunda = criar_solicitacao(["ana"], nome_equipe="Grupo 2")
+        segunda.nome_projeto = "Adota Pet"
+
+        criar_controller(service).criar_repositorios_em_lote([primeira, segunda])
+
+        assert [equipe for equipe, _ in service.removidos] == ["grupo 1", "grupo 2"]

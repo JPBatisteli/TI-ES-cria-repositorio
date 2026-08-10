@@ -22,6 +22,8 @@ class ResultadoCriacao:
         alunos (List[ResultadoAdicaoAluno]): Desfecho da adição de cada aluno.
         equipe (str): Identificador da equipe criada, quando solicitada.
         erro_equipe (str): Motivo pelo qual a equipe não pôde ser criada.
+        aviso_equipe (str): Problema que não impediu a criação da equipe, como a
+                            remoção do professor não ter sido concluída.
     """
     novo_repositorio: NovoRepositorio
     sucesso: bool = False
@@ -30,6 +32,7 @@ class ResultadoCriacao:
     alunos: List[ResultadoAdicaoAluno] = field(default_factory=list)
     equipe: str = ""
     erro_equipe: str = ""
+    aviso_equipe: str = ""
 
     @property
     def total_alunos_adicionados(self) -> int:

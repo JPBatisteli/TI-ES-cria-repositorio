@@ -56,13 +56,7 @@ class CriacaoRepositorioController:
                     [self._mensagem_repositorio_duplicado(organizacao, nome)]
                 )
 
-            dados = self.github_service.criar_repositorio(
-                nome_organizacao=organizacao,
-                nome_repositorio=nome,
-                descricao=novo_repositorio.descricao,
-                privado=novo_repositorio.privado,
-                inicializar_readme=novo_repositorio.inicializar_readme
-            )
+            dados = self._gerar_repositorio(novo_repositorio, organizacao, nome)
         except RepositorioJaExisteError:
             # O repositório existe, mas não é visível para o token usado na verificação
             # prévia (repositório privado, por exemplo). A recusa vem da própria API.
@@ -80,6 +74,9 @@ class CriacaoRepositorioController:
 
             if resultado.equipe:
                 resultado.alunos = self.adicionar_alunos_na_equipe(novo_repositorio, resultado.equipe)
+                # A remoção vem por último: se falhar, o repositório, a equipe e o
+                # acesso dos alunos já estão prontos.
+                resultado.aviso_equipe = self._remover_criador_da_equipe(organizacao, resultado.equipe)
                 return resultado
 
         # Sem equipe — seja por opção do professor, seja porque a criação dela falhou —
@@ -87,6 +84,43 @@ class CriacaoRepositorioController:
         resultado.alunos = self.adicionar_alunos(novo_repositorio)
 
         return resultado
+
+    def _gerar_repositorio(self, novo_repositorio: NovoRepositorio, organizacao: str, nome: str) -> dict:
+        """
+        Cria o repositório, a partir do modelo do campus quando houver um.
+
+        Todos os campi possuem modelo configurado, de modo que este é o caminho normal.
+        A criação de repositório vazio permanece como alternativa para um campus que
+        venha a ser cadastrado sem modelo.
+
+        Args:
+            novo_repositorio (NovoRepositorio): Solicitação validada.
+            organizacao (str): Organização em que o repositório será criado.
+            nome (str): Nome padronizado do repositório.
+
+        Returns:
+            dict: Dados do repositório criado, devolvidos pela API.
+
+        Raises:
+            GithubServiceError: Se a criação falhar.
+        """
+        if novo_repositorio.usa_template:
+            template = novo_repositorio.template
+            return self.github_service.criar_repositorio_por_template(
+                template_owner=template.owner,
+                template_repositorio=template.repositorio,
+                nome_organizacao=organizacao,
+                nome_repositorio=nome,
+                descricao=novo_repositorio.descricao,
+                privado=novo_repositorio.privado
+            )
+
+        return self.github_service.criar_repositorio(
+            nome_organizacao=organizacao,
+            nome_repositorio=nome,
+            descricao=novo_repositorio.descricao,
+            privado=novo_repositorio.privado
+        )
 
     def _criar_equipe(self, novo_repositorio: NovoRepositorio) -> Tuple[str, str]:
         """
@@ -118,6 +152,41 @@ class CriacaoRepositorioController:
             return "", str(erro)
 
         return slug, ""
+
+    def _remover_criador_da_equipe(self, nome_organizacao: str, slug_equipe: str) -> str:
+        """
+        Remove da equipe o professor que a criou.
+
+        O GitHub adiciona automaticamente como mantenedor quem cria uma equipe, sem
+        oferecer forma de evitar isso. Como os professores são proprietários da
+        organização, e proprietários administram todas as equipes independentemente de
+        pertencerem a elas, a remoção não lhes custa acesso — apenas evita que se
+        acumulem nas equipes de todas as turmas.
+
+        A falha aqui não invalida nada do que já foi feito, por isso é devolvida como
+        aviso e não como erro.
+
+        Args:
+            nome_organizacao (str): Nome da organização no GitHub.
+            slug_equipe (str): Identificador da equipe recém-criada.
+
+        Returns:
+            str: Aviso a ser exibido ao professor, ou string vazia se tudo correu bem.
+        """
+        try:
+            professor = self.github_service.obter_usuario_autenticado()
+
+            if not professor:
+                return (
+                    "A equipe foi criada, mas não foi possível identificar o usuário do "
+                    "token para removê-lo dela."
+                )
+
+            self.github_service.remover_membro_da_equipe(nome_organizacao, slug_equipe, professor)
+        except GithubServiceError as erro:
+            return f"A equipe foi criada, mas você não pôde ser removido dela: {erro}"
+
+        return ""
 
     def adicionar_alunos_na_equipe(
             self,
@@ -265,6 +334,9 @@ class CriacaoRepositorioController:
             ]
             return verificacao
 
+        # O modelo é o mesmo para todos os grupos, por ser definido pelo campus.
+        verificacao.erro_template = self._verificar_template(solicitacoes[0])
+
         # Guarda o resultado por nome de usuário, para não repetir a consulta quando o
         # mesmo aluno aparecer em mais de um grupo do arquivo.
         existencia_conhecida = {}
@@ -275,6 +347,37 @@ class CriacaoRepositorioController:
         ]
 
         return verificacao
+
+    def _verificar_template(self, solicitacao: NovoRepositorio) -> str:
+        """
+        Verifica se o repositório-modelo do campus está utilizável.
+
+        A consulta é feita uma única vez por lote, já que o modelo é definido pelo
+        campus e vale para todos os grupos do arquivo.
+
+        Args:
+            solicitacao (NovoRepositorio): Qualquer solicitação do lote, usada apenas
+                                           para obter o campus.
+
+        Returns:
+            str: Mensagem de erro, ou string vazia se o modelo estiver utilizável.
+        """
+        if not solicitacao.usa_template:
+            return ""
+
+        template = solicitacao.template
+
+        try:
+            if not self.github_service.e_template(template.owner, template.repositorio):
+                return (
+                    f"O repositório-modelo '{template}' não foi encontrado ou não está "
+                    "marcado como template no GitHub. Confirme em Settings → Template "
+                    "repository, na página do modelo."
+                )
+        except GithubServiceError as erro:
+            return f"Não foi possível consultar o repositório-modelo '{template}': {erro}"
+
+        return ""
 
     def _verificar_grupo(
             self,

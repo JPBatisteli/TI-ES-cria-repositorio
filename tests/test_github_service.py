@@ -1,3 +1,5 @@
+import time
+
 import pytest
 import requests
 
@@ -259,3 +261,79 @@ class TestEquipes:
 
         assert capturado["url"] == "https://api.github.com/orgs/org/teams/equipe/memberships/ana"
         assert capturado["json"] == {"role": "member"}
+
+
+class TestUsuarioAutenticado:
+
+    def test_devolve_o_login_do_dono_do_token(self, service, monkeypatch):
+        monkeypatch.setattr(requests, "get", lambda *a, **k: RespostaFalsa(200, {"login": "prof-joao"}))
+        assert service.obter_usuario_autenticado() == "prof-joao"
+
+    def test_consulta_a_api_uma_unica_vez(self, service, monkeypatch):
+        chamadas = []
+
+        def get_falso(*a, **k):
+            chamadas.append(1)
+            return RespostaFalsa(200, {"login": "prof-joao"})
+
+        monkeypatch.setattr(requests, "get", get_falso)
+
+        for _ in range(5):
+            service.obter_usuario_autenticado()
+
+        assert len(chamadas) == 1
+
+    def test_usa_o_endpoint_do_usuario_autenticado(self, service, monkeypatch):
+        capturado = {}
+
+        def get_falso(url, headers=None, **k):
+            capturado["url"] = url
+            return RespostaFalsa(200, {"login": "prof-joao"})
+
+        monkeypatch.setattr(requests, "get", get_falso)
+        service.obter_usuario_autenticado()
+
+        assert capturado["url"] == "https://api.github.com/user"
+
+    def test_erro_e_propagado(self, service, monkeypatch):
+        monkeypatch.setattr(requests, "get", lambda *a, **k: RespostaFalsa(401, {}))
+
+        with pytest.raises(GithubServiceError, match="Token do GitHub inválido"):
+            service.obter_usuario_autenticado()
+
+
+class TestRemocaoDeMembroDaEquipe:
+
+    def test_usa_a_rota_de_associacao_da_equipe(self, service, monkeypatch):
+        capturado = {}
+
+        def delete_falso(url, headers=None, **k):
+            capturado["url"] = url
+            return RespostaFalsa(204)
+
+        monkeypatch.setattr(requests, "delete", delete_falso)
+        service.remover_membro_da_equipe("org", "equipe", "prof-joao")
+
+        assert capturado["url"] == "https://api.github.com/orgs/org/teams/equipe/memberships/prof-joao"
+
+    def test_status_204_conclui_sem_erro(self, service, monkeypatch):
+        monkeypatch.setattr(requests, "delete", lambda *a, **k: RespostaFalsa(204))
+        assert service.remover_membro_da_equipe("org", "equipe", "prof-joao") is None
+
+    def test_falha_e_propagada(self, service, monkeypatch):
+        monkeypatch.setattr(requests, "delete", lambda *a, **k: RespostaFalsa(403, {}))
+
+        with pytest.raises(GithubServiceError, match="Sem permissão"):
+            service.remover_membro_da_equipe("org", "equipe", "prof-joao")
+
+    def test_a_remocao_respeita_o_controle_de_ritmo(self, monkeypatch):
+        # DELETE cria conteúdo do ponto de vista do limite do GitHub, então é espaçado.
+        esperas = []
+        monkeypatch.setattr(time, "sleep", lambda s: esperas.append(s))
+        monkeypatch.setattr(requests, "delete", lambda *a, **k: RespostaFalsa(204))
+
+        service = GithubService(token="t", intervalo_entre_escritas=0.8)
+        service.remover_membro_da_equipe("org", "equipe", "ana")
+        service.remover_membro_da_equipe("org", "equipe", "bruno")
+
+        assert len(esperas) == 1

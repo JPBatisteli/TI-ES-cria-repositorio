@@ -90,6 +90,7 @@ class GithubService:
             else intervalo_entre_escritas
         )
         self._instante_da_ultima_escrita = 0.0
+        self._usuario_autenticado: Optional[str] = None
         self.headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"token {self.token}"
@@ -129,7 +130,7 @@ class GithubService:
         após uma espera padrão, quando ela não informa o tempo.
 
         Args:
-            metodo (str): Método HTTP em minúsculas ('get', 'post' ou 'put').
+            metodo (str): Método HTTP em minúsculas ('get', 'post', 'put' ou 'delete').
             url (str): URL completa da requisição.
             **parametros: Demais argumentos repassados ao requests.
 
@@ -365,6 +366,84 @@ class GithubService:
 
         return resposta.json()
 
+    def criar_repositorio_por_template(
+            self,
+            template_owner: str,
+            template_repositorio: str,
+            nome_organizacao: str,
+            nome_repositorio: str,
+            descricao: str = "",
+            privado: bool = False,
+            incluir_todas_as_branches: bool = False
+    ) -> dict:
+        """
+        Cria um repositório a partir de um repositório-modelo.
+
+        O repositório gerado recebe a estrutura de arquivos do modelo num commit
+        inicial único: o histórico, as issues e os pull requests do modelo não são
+        copiados.
+
+        Args:
+            template_owner (str): Dono do repositório-modelo.
+            template_repositorio (str): Nome do repositório-modelo.
+            nome_organizacao (str): Organização em que o repositório será criado.
+            nome_repositorio (str): Nome do repositório a ser criado.
+            descricao (str): Descrição do repositório.
+            privado (bool): Indica se o repositório deve ser privado.
+            incluir_todas_as_branches (bool): Copia todas as branches do modelo, e não
+                                              apenas a branch padrão.
+
+        Returns:
+            dict: Dados do repositório criado, devolvidos pela API.
+
+        Raises:
+            RepositorioJaExisteError: Se a organização já possuir um repositório com esse nome.
+            GithubServiceError: Se a criação falhar por outro motivo.
+        """
+        url = f"{self.URL_BASE}/repos/{template_owner}/{template_repositorio}/generate"
+        dados = {
+            "owner": nome_organizacao,
+            "name": nome_repositorio,
+            "description": descricao,
+            "private": privado,
+            "include_all_branches": incluir_todas_as_branches,
+        }
+
+        resposta = self._executar("post", url, json=dados)
+
+        if resposta.status_code != 201:
+            self._tratar_erro(
+                resposta,
+                f"criar o repositório '{nome_repositorio}' a partir do modelo "
+                f"'{template_owner}/{template_repositorio}'"
+            )
+
+        return resposta.json()
+
+    def e_template(self, owner: str, nome_repositorio: str) -> bool:
+        """
+        Verifica se um repositório existe e está marcado como template no GitHub.
+
+        Args:
+            owner (str): Dono do repositório.
+            nome_repositorio (str): Nome do repositório.
+
+        Returns:
+            bool: True se o repositório existir e for um template.
+
+        Raises:
+            GithubServiceError: Se a requisição falhar por motivo diferente de 404.
+        """
+        url = f"{self.URL_BASE}/repos/{owner}/{nome_repositorio}"
+        resposta = self._executar("get", url)
+
+        if resposta.status_code == 404:
+            return False
+        if resposta.status_code != 200:
+            self._tratar_erro(resposta, f"consultar o repositório-modelo '{owner}/{nome_repositorio}'")
+
+        return bool(resposta.json().get("is_template"))
+
     def listar_membros(self, nome_organizacao: str, papel: str = "member") -> List[str]:
         """
         Lista os nomes de usuário dos membros da organização.
@@ -469,6 +548,51 @@ class GithubService:
             return False
 
         self._tratar_erro(resposta, f"adicionar '{username}' ao repositório '{nome_repositorio}'")
+
+    def obter_usuario_autenticado(self) -> str:
+        """
+        Retorna o nome de usuário dono do token em uso.
+
+        A aplicação precisa desse dado para remover o próprio professor das equipes
+        que ela cria. O resultado é guardado na instância, de modo que um lote inteiro
+        consome uma única consulta.
+
+        Returns:
+            str: Nome de usuário do dono do token.
+
+        Raises:
+            GithubServiceError: Se a requisição falhar.
+        """
+        if self._usuario_autenticado is None:
+            resposta = self._executar("get", f"{self.URL_BASE}/user")
+
+            if resposta.status_code != 200:
+                self._tratar_erro(resposta, "identificar o usuário dono do token")
+
+            self._usuario_autenticado = resposta.json().get("login", "")
+
+        return self._usuario_autenticado
+
+    def remover_membro_da_equipe(self, nome_organizacao: str, slug_equipe: str, username: str):
+        """
+        Remove um usuário de uma equipe da organização.
+
+        Remover-se de uma equipe não custa acesso a quem é proprietário da organização:
+        proprietários administram todas as equipes, sejam membros delas ou não.
+
+        Args:
+            nome_organizacao (str): Nome da organização no GitHub.
+            slug_equipe (str): Identificador da equipe.
+            username (str): Nome de usuário a ser removido.
+
+        Raises:
+            GithubServiceError: Se a operação falhar.
+        """
+        url = f"{self.URL_BASE}/orgs/{nome_organizacao}/teams/{slug_equipe}/memberships/{username}"
+        resposta = self._executar("delete", url)
+
+        if resposta.status_code != 204:
+            self._tratar_erro(resposta, f"remover '{username}' da equipe '{slug_equipe}'")
 
     def usuario_existe(self, username: str) -> bool:
         """

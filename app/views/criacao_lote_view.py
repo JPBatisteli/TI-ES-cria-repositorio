@@ -58,7 +58,6 @@ class CriacaoLoteView:
     def __init__(self):
         self.campus = None
         self.token = ""
-        self.privado = True
 
     @staticmethod
     def _exibir_instrucoes():
@@ -102,12 +101,11 @@ class CriacaoLoteView:
 
         st.caption(f"Organização no GitHub: [{self.campus.organizacao}]({self.campus.url_organizacao})")
 
-        self.privado = st.checkbox(
-            "Criar os repositórios como privados",
-            value=True,
-            key="privado_lote",
-            help="Vale para todos os repositórios do arquivo."
-        )
+        if self.campus.template:
+            st.caption(
+                f"Repositório-modelo: [{self.campus.template}]({self.campus.template.url}) "
+                "— os repositórios são privados e gerados a partir dele"
+            )
 
     @staticmethod
     def _exibir_erros(arquivo: ArquivoLote):
@@ -139,7 +137,6 @@ class CriacaoLoteView:
             {
                 "Repositório": solicitacao.nome,
                 "Equipe": solicitacao.nome_equipe,
-                "Visibilidade": "Privado" if solicitacao.privado else "Público",
                 "Alunos": len(solicitacao.alunos_unicos),
                 "Avisos": "; ".join(grupo.avisos),
             }
@@ -203,6 +200,13 @@ class CriacaoLoteView:
             mime="text/csv",
             key="baixar_resultado_lote"
         )
+
+        avisos = [resultado.aviso_equipe for resultado in resultados if resultado.aviso_equipe]
+        if avisos:
+            st.warning(
+                f"{len(avisos)} equipe(s) foram criadas, mas você não pôde ser removido "
+                "delas. Isso não afeta o acesso dos alunos nem o seu."
+            )
 
         CriacaoLoteView._exibir_alunos_com_problema(resultados)
 
@@ -315,6 +319,9 @@ class CriacaoLoteView:
         ])
 
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+        if verificacao.erro_template:
+            st.error(verificacao.erro_template)
 
         if verificacao.grupos_com_problema:
             st.error(
@@ -439,7 +446,7 @@ class CriacaoLoteView:
             self._exibir_erros(arquivo)
             return
 
-        solicitacoes = arquivo.montar_solicitacoes(self.campus, privado=self.privado)
+        solicitacoes = arquivo.montar_solicitacoes(self.campus)
         self._exibir_previa(arquivo, solicitacoes)
 
         if not self.token:

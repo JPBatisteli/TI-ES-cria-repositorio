@@ -31,8 +31,8 @@ class NovoRepositorio:
         ano (int): Ano letivo.
         semestre (int): Semestre letivo (1 ou 2).
         descricao (str): Descrição opcional do repositório.
-        privado (bool): Indica se o repositório deve ser criado como privado.
-        inicializar_readme (bool): Indica se o repositório deve ser criado com um README inicial.
+        privado (bool): Indica se o repositório deve ser criado como privado. Os
+                        repositórios de TI são sempre privados, por decisão institucional.
         alunos (List[Aluno]): Alunos a serem adicionados como colaboradores.
         criar_equipe (bool): Indica se deve ser criada uma equipe para o repositório.
         nome_equipe_personalizado (str): Nome informado pelo professor para a equipe.
@@ -48,8 +48,7 @@ class NovoRepositorio:
     ano: int = field(default_factory=lambda: PeriodoLetivo.atual().ano)
     semestre: int = field(default_factory=lambda: PeriodoLetivo.atual().semestre)
     descricao: str = ""
-    privado: bool = False
-    inicializar_readme: bool = True
+    privado: bool = True
     alunos: List[Aluno] = field(default_factory=list)
     criar_equipe: bool = False
     nome_equipe_personalizado: str = ""
@@ -137,6 +136,21 @@ class NovoRepositorio:
     def url(self) -> str:
         """Retorna a URL que o repositório terá dentro da organização do campus."""
         return f"{self.campus.url_organizacao}/{self.nome}"
+
+    @property
+    def template(self):
+        """
+        Retorna o repositório-modelo do campus, quando houver.
+
+        Returns:
+            Optional[Template]: Modelo a ser usado como base do repositório.
+        """
+        return self.campus.template
+
+    @property
+    def usa_template(self) -> bool:
+        """Indica que o repositório será gerado a partir de um repositório-modelo."""
+        return self.template is not None
 
     def _validar_codigo_disciplina(self):
         """Valida se o código da disciplina foi preenchido e contém apenas dígitos."""

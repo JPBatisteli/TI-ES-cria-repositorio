@@ -26,6 +26,11 @@ class GithubServiceFalso:
                           privado=False, inicializar_readme=True):
         return {"html_url": f"https://github.com/{nome_organizacao}/{nome_repositorio}"}
 
+    def criar_repositorio_por_template(self, template_owner, template_repositorio, nome_organizacao,
+                                       nome_repositorio, descricao="", privado=False,
+                                       incluir_todas_as_branches=False):
+        return self.criar_repositorio(nome_organizacao, nome_repositorio, descricao, privado)
+
     def e_membro(self, nome_organizacao, username):
         return username.lower() in self.membros
 

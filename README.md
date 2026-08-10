@@ -60,12 +60,36 @@ apenas da interface.
 
 ## 🏫 Campi e organizações
 
-| Campus                | Sigla | Organização no GitHub       |
-|-----------------------|-------|-----------------------------|
-| Coração Eucarístico   | `pmg` | `ICEI-PUC-Minas-PMGES-TI`   |
-| Lourdes               | `plf` | `ICEI-PUC-Minas-PPLES-TI`   |
+| Campus                | Sigla | Organização no GitHub       | Repositório-modelo          |
+|-----------------------|-------|-----------------------------|-----------------------------|
+| Coração Eucarístico   | `pmg` | `ICEI-PUC-Minas-PMGES-TI`   | `TI-ES-GenericTemplate`     |
+| Lourdes               | `plf` | `ICEI-PUC-Minas-PPLES-TI`   | `TI-ES-GenericTemplate`     |
 
 Novos campi são cadastrados em [`app/models/campus.py`](app/models/campus.py), no dicionário `CAMPI`.
+
+---
+
+## 📁 Repositório-modelo
+
+Os repositórios **não nascem vazios**: são gerados a partir do modelo da organização do
+campus, via `POST /repos/{owner}/{modelo}/generate`. Cada campus tem o seu, na própria
+organização, e a escolha é automática — o professor não seleciona nada.
+
+O que isso implica:
+
+- O repositório nasce com a estrutura de arquivos do modelo, num **commit inicial único**
+- Histórico, issues e pull requests do modelo **não** são copiados
+- Não há opção de README inicial: o conteúdo vem sempre do modelo
+
+Os repositórios também são **sempre privados**. Nem a visibilidade nem a origem do
+conteúdo são escolhas do professor — são o padrão institucional, fixado no código.
+
+O modelo precisa estar marcado como template no GitHub (*Settings → Template repository*).
+Na criação em lote isso é verificado **uma vez por lote**, antes de qualquer criação: se
+o modelo não existir ou não estiver marcado, nada é criado e o motivo aparece na tela.
+
+Um campus sem modelo configurado (`template=None`) volta a criar repositórios vazios,
+respeitando a opção de README.
 
 ---
 
@@ -245,6 +269,18 @@ organizar as equipes sob um time da turma.
 
 A verificação de associação à organização continua valendo: alunos que não são membros
 não são adicionados à equipe, apenas reportados.
+
+**O professor é removido da equipe ao final.** O GitHub inclui automaticamente como
+mantenedor quem cria uma equipe, sem oferecer forma de evitar isso — a documentação é
+explícita: *"When you create a new team, you automatically become a team maintainer
+without explicitly adding yourself to the optional array of maintainers."* Sem a
+remoção, o professor se acumularia nas equipes de todas as turmas, de todos os
+semestres.
+
+Isso não lhe custa acesso: proprietários da organização administram todas as equipes,
+sejam membros delas ou não. A remoção acontece **depois** de os alunos entrarem, de
+modo que, se falhar, o repositório, a equipe e o acesso da equipe já estão prontos — o
+professor recebe apenas um aviso.
 
 Se a criação da equipe falhar — por exemplo, se já existir um time com esse nome — o
 repositório permanece criado e os alunos recebem **acesso individual com permissão de

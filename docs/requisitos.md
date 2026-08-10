@@ -27,7 +27,9 @@
 
 - **RF11.** O sistema deve verificar se já existe um repositório com o mesmo nome na organização antes de criá-lo.
 - **RF12.** O sistema deve criar o repositório na organização selecionada por meio da API do GitHub.
-- **RF13.** O sistema deve permitir definir a visibilidade do repositório (público ou privado) e a criação de um README inicial.
+- **RF13.** O sistema deve criar todos os repositórios como privados, sem oferecer opção de visibilidade.
+- **RF13.1.** O sistema deve gerar os repositórios a partir do repositório-modelo da organização do campus, sem oferecer opção de repositório vazio ou de README inicial.
+- **RF13.2.** O sistema deve verificar, antes da criação em lote, se o repositório-modelo existe e está marcado como template, impedindo a criação caso contrário.
 - **RF14.** O sistema deve exibir a URL do repositório criado.
 - **RF15.** O sistema deve exibir mensagens de erro compreensíveis quando a criação não for concluída (token inválido, falta de permissão, repositório duplicado).
 - **RF16.** O sistema deve manter a lista dos repositórios criados durante a sessão e permitir a sua exportação em `.csv`.
@@ -43,6 +45,8 @@
 - **RF24.2.** A equipe deve ser criada com privacidade `closed`.
 - **RF25.** A equipe criada deve receber permissão de administração sobre o repositório.
 - **RF26.** Quando a equipe for criada, os alunos devem ser adicionados a ela em vez de receberem acesso individual.
+- **RF26.1.** O sistema deve remover da equipe o professor que a criou, já que o GitHub o inclui automaticamente como mantenedor.
+- **RF26.2.** A remoção deve ocorrer após a adição dos alunos e, se falhar, não deve invalidar a criação — apenas gerar aviso.
 - **RF27.** O sistema deve manter o repositório criado e conceder acesso individual aos alunos caso a criação da equipe falhe, informando o motivo da falha.
 - **RF28.** O sistema deve oferecer, em aba própria, a criação de vários repositórios a partir de um arquivo `.txt`.
 - **RF29.** O arquivo deve conter um cabeçalho com a disciplina e o código da turma, seguido de um bloco por grupo com o nome do repositório, o nome do grupo e os nomes de usuário dos membros.

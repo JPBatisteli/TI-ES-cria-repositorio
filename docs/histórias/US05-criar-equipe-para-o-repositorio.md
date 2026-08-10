@@ -15,6 +15,8 @@
 - A equipe deve ser criada com privacidade `closed`, para permitir aninhamento futuro sob um time da turma.
 - A equipe deve receber permissão de administração sobre o repositório.
 - Os alunos devem ser adicionados à equipe, e não como colaboradores individuais.
+- O professor que cria a equipe deve ser removido dela ao final, já que o GitHub o inclui automaticamente como mantenedor.
+- A falha na remoção não deve invalidar a criação, apenas gerar aviso.
 - Apenas alunos que já pertencem à organização devem ser adicionados; os demais continuam sendo apenas reportados.
 - O nome da equipe a ser criada deve aparecer na prévia, antes da criação.
 - Caso a criação da equipe falhe, o repositório deve permanecer criado, o motivo deve ser exibido e os alunos devem receber acesso individual.

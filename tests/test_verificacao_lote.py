@@ -21,13 +21,20 @@ Membros: carla-dias
 class GithubServiceFalso:
     """Dublê do GithubService, usado para testar a verificação sem acessar a API."""
 
-    def __init__(self, membros=(), equipes=(), repositorios=(), contas=(), erro_ao_listar=""):
+    def __init__(self, membros=(), equipes=(), repositorios=(), contas=(), erro_ao_listar="",
+                 template_valido=True):
         self.membros = list(membros)
         self.equipes = list(equipes)
         self.repositorios = {nome.lower() for nome in repositorios}
         self.contas = {nome.lower() for nome in contas} | {nome.lower() for nome in membros}
         self.erro_ao_listar = erro_ao_listar
+        self.template_valido = template_valido
         self.consultas_de_conta = []
+        self.consultas_de_template = []
+
+    def e_template(self, owner, nome_repositorio):
+        self.consultas_de_template.append(f"{owner}/{nome_repositorio}")
+        return self.template_valido
 
     def listar_membros(self, nome_organizacao, papel="member"):
         if self.erro_ao_listar:

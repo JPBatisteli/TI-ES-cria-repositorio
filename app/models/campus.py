@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from app.models.template import Template
 
 
 @dataclass(frozen=True)
@@ -16,11 +18,14 @@ class Campus:
         sigla (str): Sigla usada como prefixo do nome do repositório (ex: pmg, plf).
         nome (str): Nome do campus (ex: Coração Eucarístico).
         organizacao (str): Nome da organização no GitHub (ex: ICEI-PUC-Minas-PMGES-TI).
+        template (Optional[Template]): Repositório-modelo do campus. Quando ausente, os
+                                       repositórios são criados vazios.
         curso (str): Nome do curso associado. Valor padrão: "Engenharia de Software".
     """
     sigla: str
     nome: str
     organizacao: str
+    template: Optional[Template] = None
     curso: str = "Engenharia de Software"
 
     @property
@@ -36,12 +41,20 @@ CAMPI: Dict[str, Campus] = {
     "Coração Eucarístico": Campus(
         sigla="pmg",
         nome="Coração Eucarístico",
-        organizacao="ICEI-PUC-Minas-PMGES-TI"
+        organizacao="ICEI-PUC-Minas-PMGES-TI",
+        template=Template(
+            owner="ICEI-PUC-Minas-PMGES-TI",
+            repositorio="TI-ES-GenericTemplate"
+        )
     ),
     "Lourdes": Campus(
         sigla="plf",
         nome="Lourdes",
-        organizacao="ICEI-PUC-Minas-PPLES-TI"
+        organizacao="ICEI-PUC-Minas-PPLES-TI",
+        template=Template(
+            owner="ICEI-PUC-Minas-PPLES-TI",
+            repositorio="TI-ES-GenericTemplate"
+        )
     ),
 }
 """Campi disponíveis, indexados pelo nome exibido na interface."""

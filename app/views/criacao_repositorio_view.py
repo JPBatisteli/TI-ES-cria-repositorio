@@ -51,8 +51,6 @@ class CriacaoRepositorioView:
         self.codigo_disciplina = ""
         self.nome_projeto = ""
         self.descricao = ""
-        self.privado = False
-        self.inicializar_readme = True
         self.token = None
         self.alunos = []
         self.criar_equipe = False
@@ -110,14 +108,6 @@ class CriacaoRepositorioView:
             "Descrição (opcional)",
             placeholder="Repositório do Trabalho Interdisciplinar da equipe."
         )
-
-        coluna_privado, coluna_readme = st.columns(2)
-
-        with coluna_privado:
-            self.privado = st.checkbox("Repositório privado", value=False)
-
-        with coluna_readme:
-            self.inicializar_readme = st.checkbox("Criar com README inicial", value=True)
 
         self._criar_selecao_de_alunos()
 
@@ -230,8 +220,6 @@ class CriacaoRepositorioView:
             ano=int(self.ano),
             semestre=int(self.semestre),
             descricao=self.descricao,
-            privado=self.privado,
-            inicializar_readme=self.inicializar_readme,
             alunos=self.alunos,
             criar_equipe=self.criar_equipe,
             nome_equipe_personalizado=self.nome_equipe
@@ -243,6 +231,11 @@ class CriacaoRepositorioView:
         st.subheader("Prévia do repositório")
         st.code(novo_repositorio.nome, language="text")
         st.caption(f"Será criado em: {novo_repositorio.url}")
+        st.caption(
+            f"Privado, gerado a partir do modelo {novo_repositorio.template}"
+            if novo_repositorio.usa_template
+            else "Privado, sem repositório-modelo configurado para este campus"
+        )
 
         alunos = novo_repositorio.alunos_unicos
         if alunos:
@@ -270,6 +263,9 @@ class CriacaoRepositorioView:
             url_equipe = f"https://github.com/orgs/{organizacao}/teams/{resultado.equipe}"
             st.success(f"Equipe **{resultado.equipe}** criada como administradora do repositório.")
             st.markdown(f"🔗 [Abrir equipe no GitHub]({url_equipe})")
+
+            if resultado.aviso_equipe:
+                st.warning(resultado.aviso_equipe)
         elif resultado.erro_equipe:
             st.error(f"A equipe não pôde ser criada: {resultado.erro_equipe}")
             st.info("Os alunos receberam acesso individual ao repositório, com permissão de escrita.")

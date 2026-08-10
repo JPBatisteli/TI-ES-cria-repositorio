@@ -118,8 +118,11 @@ class VerificacaoLote:
 
     Attributes:
         grupos (List[VerificacaoGrupo]): Verificação de cada grupo, na ordem do arquivo.
+        erro_template (str): Problema com o repositório-modelo do campus. Impede a
+                             criação de todos os grupos, já que o modelo é comum a eles.
     """
     grupos: List[VerificacaoGrupo] = field(default_factory=list)
+    erro_template: str = ""
 
     @property
     def apto(self) -> bool:
@@ -166,11 +169,12 @@ class VerificacaoLote:
         """
         Indica que a criação pode prosseguir.
 
-        Exige que haja algo a criar e que nenhum grupo apresente problema a corrigir.
-        Grupos já existentes não bloqueiam: permitem retomar um lote interrompido sem
-        que o professor precise editar o arquivo.
+        Exige que haja algo a criar, que nenhum grupo apresente problema a corrigir e
+        que o repositório-modelo do campus esteja utilizável. Grupos já existentes não
+        bloqueiam: permitem retomar um lote interrompido sem que o professor precise
+        editar o arquivo.
         """
-        return bool(self.grupos_a_criar) and not self.grupos_com_problema
+        return bool(self.grupos_a_criar) and not self.grupos_com_problema and not self.erro_template
 
     def solicitacoes_a_criar(self) -> List:
         """
