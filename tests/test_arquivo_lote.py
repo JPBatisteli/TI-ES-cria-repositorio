@@ -5,9 +5,6 @@ from app.models.campus import obter_campus
 from app.models.disciplina import Disciplina
 
 ARQUIVO_VALIDO = """# Turma da manhã
-TI: TI1
-Codigo: 2401100
-
 Repositorio: Adota Pet
 Grupo: Grupo 1
 Membros: ana-souza, bruno-lima, carla-dias
@@ -18,48 +15,36 @@ Membros: joao-silva, maria-dev
 """
 
 
-class TestLeituraDoCabecalho:
+class TestCabecalhoObsoleto:
+    """A turma deixou de vir do arquivo; os rótulos antigos são ignorados com aviso."""
 
-    def test_le_disciplina_e_codigo(self):
-        arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
+    @pytest.mark.parametrize("rotulo", ["TI", "ti", "Disciplina", "Codigo", "Código",
+                                        "Codigo da disciplina"])
+    def test_rotulos_de_turma_sao_ignorados_sem_erro(self, rotulo):
+        arquivo = ArquivoLote.de_texto(f"{rotulo}: qualquer coisa\nRepositorio: X\n")
 
-        assert arquivo.disciplina == Disciplina.TI1
-        assert arquivo.codigo_disciplina == "2401100"
         assert arquivo.valido is True
+        assert len(arquivo.grupos) == 1
 
-    @pytest.mark.parametrize("rotulo", ["TI", "ti", "Disciplina", "DISCIPLINA"])
-    def test_aceita_sinonimos_e_maiusculas_no_rotulo(self, rotulo):
-        arquivo = ArquivoLote.de_texto(f"{rotulo}: TI3\nCodigo: 123\nRepositorio: X\n")
-        assert arquivo.disciplina == Disciplina.TI3
+    def test_o_professor_e_avisado_de_que_a_turma_vem_da_interface(self):
+        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 2401100\nRepositorio: X\n")
 
-    @pytest.mark.parametrize("rotulo", ["Codigo", "Código", "Codigo da disciplina"])
-    def test_aceita_codigo_com_e_sem_acento(self, rotulo):
-        arquivo = ArquivoLote.de_texto(f"TI: TI1\n{rotulo}: 2401100\nRepositorio: X\n")
-        assert arquivo.codigo_disciplina == "2401100"
+        assert arquivo.valido is True
+        assert len(arquivo.avisos) == 1
+        assert "escolhida na interface" in arquivo.avisos[0]
+        assert "linha 1" in arquivo.avisos[0]
+        assert "linha 2" in arquivo.avisos[0]
 
-    @pytest.mark.parametrize("valor", ["ti1", "TI1", "Ti1"])
-    def test_disciplina_e_reconhecida_sem_diferenciar_maiusculas(self, valor):
-        arquivo = ArquivoLote.de_texto(f"TI: {valor}\nCodigo: 123\nRepositorio: X\n")
-        assert arquivo.disciplina == Disciplina.TI1
+    def test_arquivo_sem_rotulos_antigos_nao_gera_aviso(self):
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: ana\n")
 
-    def test_disciplina_desconhecida_e_reportada_com_a_linha(self):
-        arquivo = ArquivoLote.de_texto("TI: TI9\nCodigo: 123\nRepositorio: X\n")
+        assert arquivo.avisos == []
 
-        assert arquivo.valido is False
-        assert any("Linha 1" in erro and "TI9" in erro for erro in arquivo.erros)
+    def test_valor_do_rotulo_antigo_e_descartado(self):
+        # Mesmo um valor absurdo não impede o processamento: a linha é ignorada.
+        arquivo = ArquivoLote.de_texto("TI: TI99\nCodigo: nao-numerico\nRepositorio: X\n")
 
-    def test_cabecalho_ausente_e_reportado(self):
-        arquivo = ArquivoLote.de_texto("Repositorio: X\n")
-
-        assert arquivo.valido is False
-        assert any("disciplina" in erro.lower() for erro in arquivo.erros)
-        assert any("código" in erro.lower() for erro in arquivo.erros)
-
-    def test_codigo_nao_numerico_e_rejeitado(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 24A1100\nRepositorio: X\n")
-
-        assert arquivo.valido is False
-        assert any("apenas dígitos" in erro for erro in arquivo.erros)
+        assert arquivo.valido is True
 
 
 class TestLeituraDosGrupos:
@@ -78,22 +63,22 @@ class TestLeituraDosGrupos:
         ]
 
     def test_aceita_ponto_e_virgula_como_separador(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: ana; bruno\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: ana; bruno\n")
         assert [aluno.username for aluno in arquivo.grupos[0].membros] == ["ana", "bruno"]
 
     def test_remove_arroba_dos_nomes_de_usuario(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: @ana, @bruno\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: @ana, @bruno\n")
         assert [aluno.username for aluno in arquivo.grupos[0].membros] == ["ana", "bruno"]
 
     def test_membros_em_varias_linhas_sao_acumulados(self):
-        conteudo = "TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: ana, bruno\nMembros: carla\n"
+        conteudo = "Repositorio: X\nMembros: ana, bruno\nMembros: carla\n"
         arquivo = ArquivoLote.de_texto(conteudo)
 
         assert [aluno.username for aluno in arquivo.grupos[0].membros] == ["ana", "bruno", "carla"]
 
     def test_linhas_em_branco_sao_opcionais(self):
         conteudo = (
-            "TI: TI1\nCodigo: 123\n"
+            ""
             "Repositorio: A\nGrupo: G1\nMembros: ana\n"
             "Repositorio: B\nGrupo: G2\nMembros: bruno\n"
         )
@@ -116,19 +101,19 @@ class TestLeituraDosGrupos:
 class TestErrosDeFormato:
 
     def test_linha_sem_rotulo_e_reportada(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nana-souza\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nana-souza\n")
 
         assert arquivo.valido is False
-        assert any("Linha 4" in erro and "Rótulo: valor" in erro for erro in arquivo.erros)
+        assert any("Linha 2" in erro and "Rótulo: valor" in erro for erro in arquivo.erros)
 
     def test_rotulo_desconhecido_e_reportado(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nProfessor: Joao\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nProfessor: Joao\n")
 
         assert arquivo.valido is False
         assert any("rótulo desconhecido" in erro and "Professor" in erro for erro in arquivo.erros)
 
     def test_membros_antes_do_primeiro_repositorio_e_reportado(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nMembros: ana\nRepositorio: X\n")
+        arquivo = ArquivoLote.de_texto("Membros: ana\nRepositorio: X\n")
 
         assert arquivo.valido is False
         assert any("antes de qualquer" in erro for erro in arquivo.erros)
@@ -141,7 +126,7 @@ class TestErrosDeFormato:
 
     def test_repositorios_repetidos_sao_reportados(self):
         conteudo = (
-            "TI: TI1\nCodigo: 123\n"
+            ""
             "Repositorio: Adota Pet\nMembros: ana\n"
             "Repositorio: adota pet\nMembros: bruno\n"
         )
@@ -151,7 +136,7 @@ class TestErrosDeFormato:
         assert any("repete" in erro for erro in arquivo.erros)
 
     def test_nome_de_repositorio_sem_caracteres_validos_e_reportado(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: !!!\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: !!!\n")
 
         assert arquivo.valido is False
         assert any("não gera um" in erro for erro in arquivo.erros)
@@ -160,19 +145,19 @@ class TestErrosDeFormato:
 class TestAvisos:
 
     def test_grupo_sem_membros_gera_aviso_mas_nao_erro(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nGrupo: G1\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nGrupo: G1\n")
 
         assert arquivo.valido is True
         assert any("sem membros" in aviso for aviso in arquivo.grupos[0].avisos)
 
     def test_grupo_sem_nome_gera_aviso(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: ana\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: ana\n")
 
         assert arquivo.valido is True
         assert any("sem nome" in aviso for aviso in arquivo.grupos[0].avisos)
 
     def test_username_invalido_gera_aviso(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: joao--silva\n")
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: joao--silva\n")
 
         assert arquivo.valido is True
         assert any("inválidos" in aviso for aviso in arquivo.grupos[0].avisos)
@@ -186,13 +171,13 @@ class TestMontagemDasSolicitacoes:
 
     def test_gera_uma_solicitacao_por_grupo(self):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100")
 
         assert len(solicitacoes) == 2
 
     def test_nome_do_repositorio_segue_o_padrao(self):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100")
         periodo = solicitacoes[0].periodo_letivo_atual
 
         assert solicitacoes[0].nome == (
@@ -201,20 +186,20 @@ class TestMontagemDasSolicitacoes:
 
     def test_nome_do_grupo_vira_o_nome_da_equipe(self):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Lourdes"))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Lourdes"), Disciplina.TI1, "2401100")
 
         assert solicitacoes[0].criar_equipe is True
         assert solicitacoes[0].nome_equipe == "Grupo 1"
 
     def test_grupo_sem_nome_recai_no_nome_derivado(self):
-        arquivo = ArquivoLote.de_texto("TI: TI1\nCodigo: 123\nRepositorio: X\nMembros: ana\n")
-        solicitacao = arquivo.montar_solicitacoes(obter_campus("Lourdes"))[0]
+        arquivo = ArquivoLote.de_texto("Repositorio: X\nMembros: ana\n")
+        solicitacao = arquivo.montar_solicitacoes(obter_campus("Lourdes"), Disciplina.TI1, "2401100")[0]
 
         assert solicitacao.nome_equipe == solicitacao.nome_equipe_derivado
 
     def test_campus_selecionado_define_a_organizacao(self):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Lourdes"))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Lourdes"), Disciplina.TI1, "2401100")
 
         assert solicitacoes[0].campus.organizacao == "ICEI-PUC-Minas-PPLES-TI"
         assert solicitacoes[0].nome.startswith("plf-")
@@ -222,7 +207,7 @@ class TestMontagemDasSolicitacoes:
     def test_solicitacoes_geradas_sao_validas(self):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
 
-        for solicitacao in arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico")):
+        for solicitacao in arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100"):
             assert solicitacao.validar() is True
 
 
@@ -250,7 +235,7 @@ class TestArquivoDeExemplo:
 
     def test_as_solicitacoes_do_exemplo_sao_validas(self):
         arquivo = self.carregar()
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100")
 
         assert len(solicitacoes) == len(arquivo.grupos)
         for solicitacao in solicitacoes:
@@ -267,7 +252,7 @@ class TestVisibilidade:
     @pytest.mark.parametrize("campus", ["Coração Eucarístico", "Lourdes"])
     def test_todos_os_repositorios_do_lote_sao_privados(self, campus):
         arquivo = ArquivoLote.de_texto(ARQUIVO_VALIDO)
-        solicitacoes = arquivo.montar_solicitacoes(obter_campus(campus))
+        solicitacoes = arquivo.montar_solicitacoes(obter_campus(campus), Disciplina.TI1, "2401100")
 
         assert len(solicitacoes) == 2
         assert all(solicitacao.privado for solicitacao in solicitacoes)

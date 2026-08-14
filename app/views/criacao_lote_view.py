@@ -12,15 +12,13 @@ from app.models.novo_repositorio import NovoRepositorio
 from app.models.periodo_letivo import PeriodoLetivo
 from app.models.resultado_criacao import ResultadoCriacao
 from app.models.verificacao_lote import VerificacaoLote
+from app.views.selecao_de_turma import selecionar_turma
 
 ARQUIVO_DE_EXEMPLO = Path(__file__).resolve().parents[2] / "docs" / "exemplo-criacao-em-lote.txt"
 
 # Usado apenas se o arquivo de exemplo não for encontrado, para que a interface
 # continue mostrando o formato esperado.
-MODELO_MINIMO = """TI: TI1
-Codigo: 2401100
-
-Repositorio: Adota Pet
+MODELO_MINIMO = """Repositorio: Adota Pet
 Grupo: Grupo 1
 Membros: ana-souza, bruno-lima, carla-dias
 
@@ -28,6 +26,27 @@ Repositorio: Brechó Re-Use
 Grupo: Grupo 2
 Membros: joao-silva, maria-dev
 """
+
+
+def chave_de_verificacao(organizacao: str, disciplina, codigo: str, conteudo: str) -> str:
+    """
+    Monta a chave que identifica uma verificação já realizada.
+
+    Todos os dados que influenciam os nomes dos repositórios entram na chave. Sem a
+    turma, trocar a disciplina ou o código reaproveitaria uma verificação feita para
+    outros nomes, e a criação usaria as solicitações antigas.
+
+    Args:
+        organizacao (str): Organização de destino.
+        disciplina: Disciplina selecionada.
+        codigo (str): Código da turma selecionada.
+        conteudo (str): Conteúdo do arquivo enviado.
+
+    Returns:
+        str: Identificador da verificação.
+    """
+    identidade = f"{organizacao}|{disciplina}|{codigo}|{conteudo}"
+    return hashlib.sha256(identidade.encode("utf-8")).hexdigest()
 
 
 def carregar_modelo_de_arquivo() -> str:
@@ -58,6 +77,8 @@ class CriacaoLoteView:
     def __init__(self):
         self.campus = None
         self.token = ""
+        self.disciplina = None
+        self.codigo_disciplina = ""
 
     @staticmethod
     def _exibir_instrucoes():
@@ -70,9 +91,10 @@ class CriacaoLoteView:
             )
             st.code(MODELO_MINIMO, language="text")
             st.markdown(
-                "São aceitos, como sinônimos, `Disciplina:` para `TI:`, `Equipe:` para "
-                "`Grupo:` e `Alunos:` para `Membros:`. Os membros podem ser separados "
-                "por vírgula ou ponto e vírgula."
+                "A turma é escolhida acima, na própria tela — o arquivo contém apenas os "
+                "grupos. São aceitos, como sinônimos, `Equipe:` para `Grupo:` e "
+                "`Alunos:` para `Membros:`. Os membros podem ser separados por "
+                "vírgula ou ponto e vírgula."
             )
             st.markdown(
                 "O modelo abaixo vem comentado, com as instruções de preenchimento "
@@ -107,6 +129,9 @@ class CriacaoLoteView:
                 "— os repositórios são privados e gerados a partir dele"
             )
 
+        st.subheader("Turma")
+        self.disciplina, self.codigo_disciplina = selecionar_turma(self.campus, sufixo_de_chave="_lote")
+
     @staticmethod
     def _exibir_erros(arquivo: ArquivoLote):
         """Exibe os problemas que impedem o processamento do arquivo."""
@@ -127,7 +152,7 @@ class CriacaoLoteView:
 
         coluna1, coluna2, coluna3 = st.columns(3)
         with coluna1:
-            st.metric("Disciplina", arquivo.disciplina.rotulo)
+            st.metric("Turma", f"{solicitacoes[0].disciplina.rotulo} · {solicitacoes[0].codigo_disciplina}")
         with coluna2:
             st.metric("Grupos", len(arquivo.grupos))
         with coluna3:
@@ -273,7 +298,9 @@ class CriacaoLoteView:
         Returns:
             VerificacaoLote: Resultado da verificação.
         """
-        chave = hashlib.sha256(f"{self.campus.organizacao}|{conteudo}".encode("utf-8")).hexdigest()
+        chave = chave_de_verificacao(
+            self.campus.organizacao, self.disciplina, self.codigo_disciplina, conteudo
+        )
 
         if st.session_state.get("chave_verificacao_lote") != chave:
             controller = CriacaoRepositorioController(token=self.token)
@@ -442,11 +469,20 @@ class CriacaoLoteView:
         conteudo = arquivo_enviado.getvalue().decode("utf-8")
         arquivo = ArquivoLote.de_texto(conteudo)
 
+        for aviso in arquivo.avisos:
+            st.info(aviso)
+
         if not arquivo.valido:
             self._exibir_erros(arquivo)
             return
 
-        solicitacoes = arquivo.montar_solicitacoes(self.campus)
+        if self.disciplina is None or not self.codigo_disciplina:
+            st.warning("Selecione a turma acima para prosseguir.")
+            return
+
+        solicitacoes = arquivo.montar_solicitacoes(
+            self.campus, self.disciplina, self.codigo_disciplina
+        )
         self._exibir_previa(arquivo, solicitacoes)
 
         if not self.token:

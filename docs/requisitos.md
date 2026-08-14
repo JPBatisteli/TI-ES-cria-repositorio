@@ -10,7 +10,9 @@
 - **RF04.** O sistema deve determinar o ano e o semestre letivos a partir da data corrente, sem permitir que o professor os altere, considerando que o 1º semestre vai de 1 de janeiro a 10 de julho e o 2º, de 11 de julho a 31 de dezembro.
 - **RF04.1.** O sistema deve exibir o período letivo em vigor e a regra que o determina.
 - **RF04.2.** O sistema deve rejeitar solicitações cujo ano e semestre não correspondam ao período letivo em vigor, ainda que informados fora da interface.
-- **RF05.** O sistema deve permitir que o professor informe o código da disciplina.
+- **RF05.** O sistema deve apresentar os códigos de turma existentes para seleção, a partir do campus, da disciplina e do turno escolhidos, sem que o professor digite o código.
+- **RF05.1.** O sistema deve exibir apenas os turnos em que a disciplina é ofertada, refletindo que TI5 e TI6 existem somente à noite.
+- **RF05.2.** O catálogo de turmas deve ficar num único ponto do código, por mudar a cada semestre.
 - **RF06.** O sistema deve permitir que o professor informe o nome do repositório.
 - **RF07.** O sistema deve montar o nome do repositório conforme o padrão de nomenclatura adotado:
 
@@ -49,7 +51,8 @@
 - **RF26.2.** A remoção deve ocorrer após a adição dos alunos e, se falhar, não deve invalidar a criação — apenas gerar aviso.
 - **RF27.** O sistema deve manter o repositório criado e conceder acesso individual aos alunos caso a criação da equipe falhe, informando o motivo da falha.
 - **RF28.** O sistema deve oferecer, em aba própria, a criação de vários repositórios a partir de um arquivo `.txt`.
-- **RF29.** O arquivo deve conter um cabeçalho com a disciplina e o código da turma, seguido de um bloco por grupo com o nome do repositório, o nome do grupo e os nomes de usuário dos membros.
+- **RF29.** O arquivo deve conter apenas os grupos — nome do repositório, nome do grupo e nomes de usuário dos membros —, sendo a turma escolhida na interface.
+- **RF29.1.** O sistema deve aceitar arquivos no formato antigo, ignorando as linhas de disciplina e código e avisando que a turma agora vem da interface.
 - **RF30.** O sistema deve reportar os erros de formato do arquivo indicando o número da linha, impedindo o processamento.
 - **RF31.** O sistema deve exibir uma prévia com os nomes finais dos repositórios, as equipes e a contagem de alunos antes de criar qualquer coisa.
 - **RF32.** O sistema deve sinalizar, na prévia, os avisos que não impedem a criação (grupo sem nome, sem membros ou com nome de usuário inválido).

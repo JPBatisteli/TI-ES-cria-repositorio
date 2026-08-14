@@ -11,6 +11,7 @@ from app.models.disciplina import Disciplina
 from app.models.novo_repositorio import NovoRepositorio
 from app.models.periodo_letivo import PeriodoLetivo
 from app.models.resultado_criacao import ResultadoCriacao
+from app.views.selecao_de_turma import selecionar_turma
 from app.services.github_service import GithubServiceError
 
 
@@ -60,15 +61,11 @@ class CriacaoRepositorioView:
         """Monta o formulário com os dados necessários para a criação do repositório."""
         st.subheader("Dados da disciplina")
 
-        coluna_campus, coluna_disciplina, coluna_ano, coluna_semestre = st.columns([4, 2, 2, 2])
+        coluna_campus, coluna_ano, coluna_semestre = st.columns([6, 2, 2])
 
         with coluna_campus:
             nome_campus = st.selectbox("Campus", listar_nomes_campi())
             self.campus = obter_campus(nome_campus)
-
-        with coluna_disciplina:
-            rotulo_disciplina = st.selectbox("Disciplina", Disciplina.listar_rotulos())
-            self.disciplina = Disciplina[rotulo_disciplina]
 
         periodo_atual = PeriodoLetivo.atual()
 
@@ -86,16 +83,12 @@ class CriacaoRepositorioView:
             "(1º semestre de janeiro a 10 de julho; 2º semestre de 11 de julho a dezembro)."
         )
 
+        st.subheader("Turma")
+        self.disciplina, self.codigo_disciplina = selecionar_turma(self.campus)
+
         st.subheader("Dados do repositório")
 
-        coluna_codigo, coluna_nome = st.columns([2, 6])
-
-        with coluna_codigo:
-            self.codigo_disciplina = st.text_input(
-                "Código da disciplina",
-                placeholder="2401100",
-                help="Código numérico da turma/disciplina no sistema acadêmico."
-            )
+        coluna_nome, _ = st.columns([6, 2])
 
         with coluna_nome:
             self.nome_projeto = st.text_input(

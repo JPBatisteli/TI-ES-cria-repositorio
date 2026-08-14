@@ -140,10 +140,7 @@ class TestServicoDeGeracaoPorModelo:
 
 class TestVerificacaoDoModeloNoLote:
 
-    ARQUIVO = """TI: TI1
-Codigo: 2401100
-
-Repositorio: Projeto A
+    ARQUIVO = """Repositorio: Projeto A
 Grupo: Grupo A
 Membros: ana
 
@@ -160,7 +157,7 @@ Membros: bruno
         controller = CriacaoRepositorioController(token="t")
         controller.github_service = service
         solicitacoes = ArquivoLote.de_texto(TestVerificacaoDoModeloNoLote.ARQUIVO).montar_solicitacoes(
-            obter_campus("Coração Eucarístico")
+            obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100"
         )
         return controller.verificar_lote(solicitacoes), service
 

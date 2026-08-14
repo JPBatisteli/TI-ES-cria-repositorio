@@ -301,11 +301,6 @@ iniciadas por `#` são ignoradas, e **cada grupo começa numa linha `Repositorio
 a separação por linhas em branco é opcional.
 
 ```text
-# Cabeçalho: disciplina e código da turma
-TI: TI1
-Codigo: 2401100
-
-# Um bloco por grupo
 Repositorio: Adota Pet
 Grupo: Grupo 1
 Membros: ana-souza, bruno-lima, carla-dias
@@ -317,14 +312,17 @@ Membros: joao-silva, maria-dev
 
 | Rótulo | Sinônimos | Significado |
 |---|---|---|
-| `TI` | `Disciplina` | Disciplina da turma (TI1 a TI6) |
-| `Codigo` | `Código`, `Codigo da disciplina` | Código numérico da turma |
 | `Repositorio` | `Repositório` | Nome do projeto — inicia um novo grupo |
 | `Grupo` | `Equipe` | Nome da equipe criada no GitHub |
 | `Membros` | `Alunos` | Nomes de usuário, separados por vírgula ou ponto e vírgula |
 
-O campus é escolhido na própria aba, não no arquivo, porque é ele que determina a
-organização. O ano e o semestre vêm do período letivo em vigor.
+A **turma** — campus, disciplina, turno e código — é escolhida na própria aba, e não no
+arquivo. Os códigos vêm de um catálogo, de modo que o professor seleciona entre as
+turmas existentes em vez de digitar o código. O ano e o semestre vêm do período letivo
+em vigor.
+
+Arquivos no formato antigo continuam sendo aceitos: as linhas `TI:` e `Codigo:` são
+ignoradas, com aviso na tela.
 
 A visibilidade também é definida na aba e vale para todos os grupos do arquivo. Os
 repositórios do lote são criados **privados por padrão**; a opção pode ser desmarcada

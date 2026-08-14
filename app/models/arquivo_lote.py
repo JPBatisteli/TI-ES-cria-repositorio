@@ -12,16 +12,17 @@ from app.utils import github_utils
 # Rótulos aceitos no arquivo, já normalizados (sem acento e em minúsculas).
 # Cada rótulo reconhecido é mapeado para o campo correspondente.
 ROTULOS = {
-    "ti": "disciplina",
-    "disciplina": "disciplina",
-    "codigo": "codigo",
-    "codigo da disciplina": "codigo",
     "repositorio": "repositorio",
     "grupo": "grupo",
     "equipe": "grupo",
     "membros": "membros",
     "alunos": "membros",
 }
+
+# Rótulos que a aplicação já exigiu no cabeçalho e hoje ignora, por a turma ser
+# escolhida na interface. Continuam reconhecidos para que arquivos antigos sejam
+# aceitos, mas o seu conteúdo é descartado com aviso.
+ROTULOS_OBSOLETOS = {"ti", "disciplina", "codigo", "codigo da disciplina", "codigo da turma"}
 
 # Separadores aceitos entre os nomes de usuário na linha de membros.
 SEPARADOR_MEMBROS = re.compile(r"[,;]")
@@ -85,29 +86,24 @@ class ArquivoLote:
     """
     Representa o conteúdo de um arquivo de criação em lote.
 
-    O arquivo começa com um cabeçalho informando a disciplina e o código da turma,
-    seguido de um bloco por grupo. Cada bloco traz o nome do repositório, o nome do
-    grupo e os nomes de usuário dos membros.
+    O arquivo contém apenas os grupos: cada bloco traz o nome do repositório, o nome
+    do grupo e os nomes de usuário dos membros. A turma — campus, disciplina, turno e
+    código — é escolhida na interface, e não informada no arquivo.
 
     Exemplo::
-
-        TI: TI1
-        Codigo: 2401100
 
         Repositorio: Adota Pet
         Grupo: Grupo 1
         Membros: ana-souza, bruno-lima
 
     Attributes:
-        disciplina (Optional[Disciplina]): Disciplina informada no cabeçalho.
-        codigo_disciplina (str): Código da turma informado no cabeçalho.
         grupos (List[GrupoLote]): Grupos lidos do arquivo.
         erros (List[str]): Problemas que impedem o processamento do arquivo.
+        avisos (List[str]): Problemas que não impedem o processamento.
     """
-    disciplina: Optional[Disciplina] = None
-    codigo_disciplina: str = ""
     grupos: List[GrupoLote] = field(default_factory=list)
     erros: List[str] = field(default_factory=list)
+    avisos: List[str] = field(default_factory=list)
 
     @property
     def valido(self) -> bool:
@@ -136,6 +132,7 @@ class ArquivoLote:
         """
         arquivo = cls()
         grupo_atual: Optional[GrupoLote] = None
+        obsoletos_encontrados = []
 
         for numero, linha in enumerate(conteudo.splitlines(), start=1):
             texto = linha.strip()
@@ -150,8 +147,13 @@ class ArquivoLote:
                 continue
 
             rotulo, valor = texto.split(":", 1)
-            campo = ROTULOS.get(_normalizar(rotulo))
+            rotulo_normalizado = _normalizar(rotulo)
+            campo = ROTULOS.get(rotulo_normalizado)
             valor = valor.strip()
+
+            if rotulo_normalizado in ROTULOS_OBSOLETOS:
+                obsoletos_encontrados.append(f"linha {numero} ('{rotulo.strip()}')")
+                continue
 
             if campo is None:
                 arquivo.erros.append(f"Linha {numero}: rótulo desconhecido '{rotulo.strip()}'.")
@@ -160,10 +162,6 @@ class ArquivoLote:
             if campo == "repositorio":
                 grupo_atual = GrupoLote(nome_repositorio=valor, linha=numero)
                 arquivo.grupos.append(grupo_atual)
-            elif campo == "disciplina":
-                arquivo._ler_disciplina(valor, numero)
-            elif campo == "codigo":
-                arquivo.codigo_disciplina = valor
             elif grupo_atual is None:
                 arquivo.erros.append(
                     f"Linha {numero}: '{rotulo.strip()}' foi informado antes de qualquer "
@@ -174,19 +172,15 @@ class ArquivoLote:
             elif campo == "membros":
                 grupo_atual.membros.extend(cls._ler_membros(valor))
 
+        if obsoletos_encontrados:
+            arquivo.avisos.append(
+                f"A turma agora é escolhida na interface. Estas linhas foram ignoradas: "
+                f"{', '.join(obsoletos_encontrados)}."
+            )
+
         arquivo._validar()
 
         return arquivo
-
-    def _ler_disciplina(self, valor: str, numero: int):
-        """Interpreta a disciplina informada no cabeçalho."""
-        try:
-            self.disciplina = Disciplina[valor.strip().upper()]
-        except KeyError:
-            self.erros.append(
-                f"Linha {numero}: disciplina '{valor}' não reconhecida. "
-                f"Use uma entre {', '.join(Disciplina.listar_rotulos())}."
-            )
 
     @staticmethod
     def _ler_membros(valor: str) -> List[Aluno]:
@@ -195,17 +189,7 @@ class ArquivoLote:
         return [Aluno.de_texto(nome) for nome in nomes if nome.strip()]
 
     def _validar(self):
-        """Valida o cabeçalho e a consistência entre os grupos lidos."""
-        if self.disciplina is None and not any("disciplina" in erro for erro in self.erros):
-            self.erros.append("Informe a disciplina no cabeçalho, na linha 'TI:'.")
-
-        if not self.codigo_disciplina:
-            self.erros.append("Informe o código da disciplina no cabeçalho, na linha 'Codigo:'.")
-        elif not github_utils.validar_codigo_disciplina(self.codigo_disciplina):
-            self.erros.append(
-                f"O código da disciplina ('{self.codigo_disciplina}') deve conter apenas dígitos."
-            )
-
+        """Valida a consistência entre os grupos lidos."""
         if not self.grupos:
             self.erros.append("Nenhum grupo encontrado. Cada grupo começa numa linha 'Repositorio:'.")
 
@@ -235,15 +219,23 @@ class ArquivoLote:
             else:
                 vistos[chave] = grupo.linha
 
-    def montar_solicitacoes(self, campus: Campus) -> List[NovoRepositorio]:
+    def montar_solicitacoes(
+            self,
+            campus: Campus,
+            disciplina: Disciplina,
+            codigo_disciplina: str
+    ) -> List[NovoRepositorio]:
         """
         Converte os grupos lidos em solicitações de criação de repositório.
 
         Cada grupo dá origem a um repositório com equipe própria, nomeada conforme o
-        nome do grupo informado no arquivo.
+        nome do grupo informado no arquivo. A turma vem da seleção feita na interface,
+        e é a mesma para todos os grupos do arquivo.
 
         Args:
             campus (Campus): Campus selecionado pelo professor.
+            disciplina (Disciplina): Disciplina da turma selecionada.
+            codigo_disciplina (str): Código da turma selecionada.
 
         Returns:
             List[NovoRepositorio]: Solicitações prontas para serem criadas.
@@ -251,8 +243,8 @@ class ArquivoLote:
         return [
             NovoRepositorio(
                 campus=campus,
-                disciplina=self.disciplina,
-                codigo_disciplina=self.codigo_disciplina,
+                disciplina=disciplina,
+                codigo_disciplina=codigo_disciplina,
                 nome_projeto=grupo.nome_repositorio,
                 alunos=list(grupo.membros),
                 criar_equipe=True,

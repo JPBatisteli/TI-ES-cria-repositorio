@@ -3,12 +3,10 @@ import pytest
 from app.controllers.criacao_repositorio_controller import CriacaoRepositorioController
 from app.models.arquivo_lote import ArquivoLote
 from app.models.campus import obter_campus
+from app.models.disciplina import Disciplina
 from app.services.github_service import GithubServiceError
 
-ARQUIVO = """TI: TI1
-Codigo: 2401100
-
-Repositorio: Adota Pet
+ARQUIVO = """Repositorio: Adota Pet
 Grupo: Grupo 1
 Membros: ana-souza, bruno-lima
 
@@ -55,7 +53,7 @@ class GithubServiceFalso:
 def verificar(service, conteudo=ARQUIVO, campus="Coração Eucarístico"):
     controller = CriacaoRepositorioController(token="token-de-teste")
     controller.github_service = service
-    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus(campus))
+    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus(campus), Disciplina.TI1, "2401100")
     return controller.verificar_lote(solicitacoes)
 
 
@@ -82,7 +80,7 @@ class TestArquivoSemImpedimentos:
 
 def nome_do_primeiro_repositorio(conteudo: str = ARQUIVO) -> str:
     """Devolve o nome gerado para o primeiro grupo, que depende do período letivo."""
-    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus("Coração Eucarístico"))
+    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100")
     return solicitacoes[0].nome
 
 
@@ -124,7 +122,7 @@ class TestNomeDaEquipe:
         assert verificacao.grupos[1].equipe_disponivel is True
 
     def test_comparacao_de_equipe_ignora_acentos_e_maiusculas(self):
-        conteudo = "TI: TI1\nCodigo: 123\nRepositorio: X\nGrupo: Equipe Brechó\nMembros: ana\n"
+        conteudo = "Repositorio: X\nGrupo: Equipe Brechó\nMembros: ana\n"
         service = GithubServiceFalso(membros=["ana"], equipes=["equipe-brecho"])
 
         verificacao = verificar(service, conteudo=conteudo)
@@ -149,7 +147,7 @@ class TestSituacaoDosAlunos:
         assert any("Não existe no GitHub" in imp for imp in verificacao.grupos[1].impedimentos)
 
     def test_username_invalido_nao_gera_consulta(self):
-        conteudo = "TI: TI1\nCodigo: 123\nRepositorio: X\nGrupo: G\nMembros: joao--silva\n"
+        conteudo = "Repositorio: X\nGrupo: G\nMembros: joao--silva\n"
         service = GithubServiceFalso()
 
         verificacao = verificar(service, conteudo=conteudo)
@@ -159,7 +157,7 @@ class TestSituacaoDosAlunos:
 
     def test_mesmo_aluno_em_varios_grupos_e_consultado_uma_vez(self):
         conteudo = (
-            "TI: TI1\nCodigo: 123\n"
+            ""
             "Repositorio: A\nGrupo: G1\nMembros: repetido\n"
             "Repositorio: B\nGrupo: G2\nMembros: repetido\n"
         )
@@ -200,10 +198,7 @@ class TestFalhaNaVerificacao:
         assert controller.verificar_lote([]).apto is False
 
 
-ARQUIVO_TRES_GRUPOS = """TI: TI1
-Codigo: 2401100
-
-Repositorio: Projeto A
+ARQUIVO_TRES_GRUPOS = """Repositorio: Projeto A
 Grupo: Grupo A
 Membros: ana-souza
 
@@ -221,7 +216,7 @@ TODOS_OS_MEMBROS = ["ana-souza", "bruno-lima", "carla-dias"]
 
 def nomes_gerados(conteudo: str = ARQUIVO_TRES_GRUPOS):
     """Nomes de repositório e de equipe gerados, que dependem do período letivo."""
-    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus("Coração Eucarístico"))
+    solicitacoes = ArquivoLote.de_texto(conteudo).montar_solicitacoes(obter_campus("Coração Eucarístico"), Disciplina.TI1, "2401100")
     return [(s.nome, s.nome_equipe) for s in solicitacoes]
 
 

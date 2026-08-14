@@ -12,8 +12,9 @@
 #   - Um novo grupo começa sempre numa linha "Repositorio:"
 #
 # UM ARQUIVO POR TURMA
-#   A disciplina e o código do cabeçalho valem para todos os grupos abaixo.
-#   Para outra turma, use outro arquivo.
+#   A turma (campus, disciplina, turno e código) é escolhida na própria tela,
+#   antes de enviar o arquivo, e vale para todos os grupos dele.
+#   Para outra turma, envie o arquivo com a outra turma selecionada.
 #
 # O QUE A APLICAÇÃO FAZ COM CADA GRUPO
 #   - Cria o repositório, com o nome já no padrão da Engenharia de Software
@@ -26,18 +27,10 @@
 #     pertencer será apenas listado no relatório, sem receber acesso.
 #   - "Membros:" recebe o nome de usuário do GitHub, não o nome da pessoa.
 #     O "@" é opcional: tanto "ana-souza" quanto "@ana-souza" funcionam.
-#   - O campus e o período letivo NÃO vão neste arquivo: o campus é escolhido
-#     na tela e o período é determinado pela data.
+#   - A turma e o período letivo NÃO vão neste arquivo: a turma é escolhida na
+#     tela e o período é determinado pela data.
 #
 # =============================================================================
-
-
-# ----- CABEÇALHO DA TURMA ----------------------------------------------------
-# TI:      disciplina da turma, de TI1 a TI6
-# Codigo:  código da turma no sistema acadêmico, apenas dígitos
-
-TI: TI1
-Codigo: 2401100
 
 
 # ----- GRUPOS ----------------------------------------------------------------
@@ -68,8 +61,6 @@ Membros: lucas-teixeira, mariana-rocha
 # ----- OBSERVAÇÕES -----------------------------------------------------------
 #
 # RÓTULOS EQUIVALENTES (use o que preferir)
-#   TI:           ou  Disciplina:
-#   Codigo:       ou  Código:
 #   Repositorio:  ou  Repositório:
 #   Grupo:        ou  Equipe:
 #   Membros:      ou  Alunos:
