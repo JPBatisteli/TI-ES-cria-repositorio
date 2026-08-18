@@ -140,12 +140,15 @@ class NovoRepositorio:
     @property
     def template(self):
         """
-        Retorna o repositório-modelo do campus, quando houver.
+        Retorna o repositório-modelo aplicável, quando houver.
+
+        O modelo depende do campus e da disciplina: algumas disciplinas adotam um
+        modelo próprio, que prevalece sobre o padrão do campus.
 
         Returns:
             Optional[Template]: Modelo a ser usado como base do repositório.
         """
-        return self.campus.template
+        return self.campus.template_para(self.disciplina)
 
     @property
     def usa_template(self) -> bool:

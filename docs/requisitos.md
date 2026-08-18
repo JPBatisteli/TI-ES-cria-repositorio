@@ -30,7 +30,8 @@
 - **RF11.** O sistema deve verificar se já existe um repositório com o mesmo nome na organização antes de criá-lo.
 - **RF12.** O sistema deve criar o repositório na organização selecionada por meio da API do GitHub.
 - **RF13.** O sistema deve criar todos os repositórios como privados, sem oferecer opção de visibilidade.
-- **RF13.1.** O sistema deve gerar os repositórios a partir do repositório-modelo da organização do campus, sem oferecer opção de repositório vazio ou de README inicial.
+- **RF13.1.** O sistema deve gerar os repositórios a partir de um repositório-modelo, sem oferecer opção de repositório vazio ou de README inicial.
+- **RF13.1.1.** O modelo deve ser determinado pela combinação de campus e disciplina, permitindo que uma disciplina adote modelo próprio e as demais sigam o padrão do campus.
 - **RF13.2.** O sistema deve verificar, antes da criação em lote, se o repositório-modelo existe e está marcado como template, impedindo a criação caso contrário.
 - **RF14.** O sistema deve exibir a URL do repositório criado.
 - **RF15.** O sistema deve exibir mensagens de erro compreensíveis quando a criação não for concluída (token inválido, falta de permissão, repositório duplicado).

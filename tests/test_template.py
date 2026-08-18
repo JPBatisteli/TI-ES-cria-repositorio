@@ -60,11 +60,12 @@ class TestTemplateDoCampus:
 class TestCriacaoAPartirDoModelo:
 
     @staticmethod
-    def criar_solicitacao(campus="Coração Eucarístico") -> NovoRepositorio:
+    def criar_solicitacao(campus="Coração Eucarístico", disciplina=Disciplina.TI2) -> NovoRepositorio:
+        # TI2 não tem modelo próprio, portanto exercita o modelo padrão do campus.
         return NovoRepositorio(
             campus=obter_campus(campus),
-            disciplina=Disciplina.TI1,
-            codigo_disciplina="2401100",
+            disciplina=disciplina,
+            codigo_disciplina="8183100",
             nome_projeto="Adota Pet",
             criar_equipe=False
         )
@@ -176,7 +177,7 @@ Membros: bruno
     def test_o_modelo_e_consultado_uma_unica_vez_por_lote(self):
         _, service = self.verificar(template_valido=True)
 
-        assert service.consultas_de_template == ["ICEI-PUC-Minas-PMGES-TI/TI-ES-GenericTemplate"]
+        assert service.consultas_de_template == ["ICEI-PUC-Minas-PMGES-TI/ti1-es-template-repository"]
 
 
 class TestPadraoFixoDeCriacao:
@@ -215,3 +216,62 @@ class TestPadraoFixoDeCriacao:
         criar_controller(service).criar_repositorio(self.solicitacao())
 
         assert capturado["privado"] is True
+
+
+class TestModeloEspecificoDaDisciplina:
+    """TI1 adota modelo próprio; as demais disciplinas seguem o padrão do campus."""
+
+    @staticmethod
+    def solicitacao(campus: str, disciplina: Disciplina) -> NovoRepositorio:
+        return NovoRepositorio(
+            campus=obter_campus(campus),
+            disciplina=disciplina,
+            codigo_disciplina="0427100",
+            nome_projeto="Adota Pet",
+            criar_equipe=False
+        )
+
+    @pytest.mark.parametrize("campus, organizacao", [
+        ("Coração Eucarístico", "ICEI-PUC-Minas-PMGES-TI"),
+        ("Lourdes", "ICEI-PUC-Minas-PPLES-TI"),
+    ])
+    def test_ti1_usa_o_modelo_proprio_da_sua_organizacao(self, campus, organizacao):
+        template = self.solicitacao(campus, Disciplina.TI1).template
+
+        assert template.nome_completo == f"{organizacao}/ti1-es-template-repository"
+
+    @pytest.mark.parametrize("disciplina", [Disciplina.TI2, Disciplina.TI3, Disciplina.TI4,
+                                            Disciplina.TI5, Disciplina.TI6])
+    def test_demais_disciplinas_seguem_o_modelo_padrao(self, disciplina):
+        template = self.solicitacao("Coração Eucarístico", disciplina).template
+
+        assert template.repositorio == "TI-ES-GenericTemplate"
+
+    def test_o_modelo_proprio_fica_na_organizacao_do_campus(self):
+        for nome, campus in CAMPI.items():
+            especifico = campus.template_para(Disciplina.TI1)
+            assert especifico.owner == campus.organizacao, nome
+
+    def test_disciplina_ausente_recai_no_padrao(self):
+        campus = obter_campus("Lourdes")
+        assert campus.template_para(Disciplina.TI6) == campus.template
+
+    def test_sem_disciplina_informada_usa_o_padrao(self):
+        campus = obter_campus("Lourdes")
+        assert campus.template_para(None) == campus.template
+
+    def test_a_criacao_do_ti1_usa_o_modelo_proprio(self):
+        service = GithubServiceFalso()
+        criar_controller(service).criar_repositorio(
+            self.solicitacao("Coração Eucarístico", Disciplina.TI1)
+        )
+
+        assert service.templates_usados == ["ICEI-PUC-Minas-PMGES-TI/ti1-es-template-repository"]
+
+    def test_a_criacao_do_ti2_usa_o_modelo_padrao(self):
+        service = GithubServiceFalso()
+        criar_controller(service).criar_repositorio(
+            self.solicitacao("Coração Eucarístico", Disciplina.TI2)
+        )
+
+        assert service.templates_usados == ["ICEI-PUC-Minas-PMGES-TI/TI-ES-GenericTemplate"]

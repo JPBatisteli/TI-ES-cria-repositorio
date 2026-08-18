@@ -60,10 +60,10 @@ apenas da interface.
 
 ## 🏫 Campi e organizações
 
-| Campus                | Sigla | Organização no GitHub       | Repositório-modelo          |
-|-----------------------|-------|-----------------------------|-----------------------------|
-| Coração Eucarístico   | `pmg` | `ICEI-PUC-Minas-PMGES-TI`   | `TI-ES-GenericTemplate`     |
-| Lourdes               | `plf` | `ICEI-PUC-Minas-PPLES-TI`   | `TI-ES-GenericTemplate`     |
+| Campus                | Sigla | Organização no GitHub       |
+|-----------------------|-------|-----------------------------|
+| Coração Eucarístico   | `pmg` | `ICEI-PUC-Minas-PMGES-TI`   |
+| Lourdes               | `plf` | `ICEI-PUC-Minas-PPLES-TI`   |
 
 Novos campi são cadastrados em [`app/models/campus.py`](app/models/campus.py), no dicionário `CAMPI`.
 
@@ -71,9 +71,18 @@ Novos campi são cadastrados em [`app/models/campus.py`](app/models/campus.py), 
 
 ## 📁 Repositório-modelo
 
-Os repositórios **não nascem vazios**: são gerados a partir do modelo da organização do
-campus, via `POST /repos/{owner}/{modelo}/generate`. Cada campus tem o seu, na própria
-organização, e a escolha é automática — o professor não seleciona nada.
+Os repositórios **não nascem vazios**: são gerados a partir de um modelo, via
+`POST /repos/{owner}/{modelo}/generate`. O modelo é escolhido automaticamente pela
+combinação de campus e disciplina — o professor não seleciona nada.
+
+| Disciplina | Repositório-modelo (na organização do campus) |
+|---|---|
+| TI1 | `ti1-es-template-repository` |
+| TI2 a TI6 | `TI-ES-GenericTemplate` |
+
+Cada campus usa o modelo da **própria organização**. Disciplinas com modelo próprio são
+cadastradas em `templates_por_disciplina`, no dicionário `CAMPI`; as demais recaem no
+modelo padrão do campus.
 
 O que isso implica:
 

@@ -1,11 +1,11 @@
-Repositorio: teste_em_lote_0
-Grupo: grupo-teste-TI6-6
+Repositorio: teste_em_lote_6
+Grupo: grupo-teste-TI6-9
 Membros: marcelacamposm, BGLuis, jaoppb, gsantss, PortoPedro
 
-Repositorio: teste_em_lote_1
-Grupo: grupo-teste-TI6-7
+Repositorio: teste_em_lote_7
+Grupo: grupo-teste-TI6-10
 Membros: DevMiguelDiniz, Henriquelobo5, joaomarcelocpa, RafaelFFranco, gabrielchagas13
 
-Repositorio: teste_em_lote_2
-Grupo: grupo-teste-TI6-8
+Repositorio: teste_em_lote_8
+Grupo: grupo-teste-TI6-11
 Membros: IsabellaLDias, LuidiC, viniciusgomesrod, TiagoBoavAmaral
