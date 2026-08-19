@@ -10,12 +10,15 @@ if str(RAIZ_DO_PROJETO) not in sys.path:
 
 import streamlit as st
 
+from app.views.adicao_membros_view import AdicaoMembroView, AdicaoMembrosLoteView
 from app.views.barra_lateral import configurar_barra_lateral
 from app.views.criacao_lote_view import CriacaoLoteView
 from app.views.criacao_repositorio_view import CriacaoRepositorioView
 
 criacao_repositorio_view = CriacaoRepositorioView()
 criacao_lote_view = CriacaoLoteView()
+adicao_membro_view = AdicaoMembroView()
+adicao_membros_lote_view = AdicaoMembrosLoteView()
 
 if __name__ == '__main__':
     st.set_page_config(page_title="Criador de Repositórios de TI", layout="wide")
@@ -25,10 +28,21 @@ if __name__ == '__main__':
     # A barra lateral é comum às abas, por isso é montada antes delas.
     token = configurar_barra_lateral()
 
-    aba_individual, aba_lote = st.tabs(["Repositório individual", "Criação em lote"])
+    aba_individual, aba_lote, aba_membro, aba_membros_lote = st.tabs([
+        "Repositório individual",
+        "Criação em lote",
+        "Adicionar aluno",
+        "Adicionar alunos por arquivo",
+    ])
 
     with aba_individual:
         criacao_repositorio_view.render(token)
 
     with aba_lote:
         criacao_lote_view.render(token)
+
+    with aba_membro:
+        adicao_membro_view.render(token)
+
+    with aba_membros_lote:
+        adicao_membros_lote_view.render(token)

@@ -15,13 +15,20 @@ from app.views.selecao_de_turma import selecionar_turma
 from app.services.github_service import GithubServiceError
 
 
-@st.cache_data(ttl=3600, show_spinner="Carregando os membros da organização...")
+# Cinco minutos: a composição da organização muda durante o próprio uso da ferramenta,
+# já que as abas de adição convidam alunos que podem aceitar em seguida.
+SEGUNDOS_DE_CACHE_DOS_MEMBROS = 300
+
+
+@st.cache_data(ttl=SEGUNDOS_DE_CACHE_DOS_MEMBROS, show_spinner="Carregando os membros da organização...")
 def carregar_membros_organizacao(nome_organizacao: str, token: str, papel: str) -> List[str]:
     """
     Carrega os nomes de usuário dos membros da organização, mantendo-os em cache.
 
-    A listagem é paginada e pode envolver várias requisições, por isso o resultado
-    é reaproveitado por uma hora em vez de recarregado a cada interação da tela.
+    A listagem é paginada e pode envolver várias requisições, por isso o resultado é
+    reaproveitado por alguns minutos em vez de recarregado a cada interação da tela.
+    O prazo é curto porque a composição da organização muda enquanto a ferramenta é
+    usada — um aluno convidado agora pode aceitar em seguida.
 
     Args:
         nome_organizacao (str): Nome da organização no GitHub.
@@ -147,18 +154,34 @@ class CriacaoRepositorioView:
         else:
             aviso = "Informe o token do GitHub na barra lateral para carregar os membros da organização."
 
-        usernames = st.multiselect(
-            "Nomes de usuário no GitHub",
-            options=membros,
-            default=[],
-            accept_new_options=True,
-            filter_mode="contains",
-            placeholder="Digite para buscar entre os membros da organização",
-            help=(
-                "Os alunos recebem permissão de escrita no repositório. É possível "
-                "digitar um nome de usuário que não esteja na lista."
+        coluna_alunos, coluna_atualizar = st.columns([9, 2], vertical_alignment="bottom")
+
+        with coluna_alunos:
+            usernames = st.multiselect(
+                "Nomes de usuário no GitHub",
+                options=membros,
+                default=[],
+                accept_new_options=True,
+                filter_mode="contains",
+                placeholder="Digite para buscar entre os membros da organização",
+                help=(
+                    "Os alunos recebem permissão de escrita no repositório. É possível "
+                    "digitar um nome de usuário que não esteja na lista."
+                )
             )
-        )
+
+        with coluna_atualizar:
+            # A aplicação percebe quem ela mesma convidou, mas não quem aceitou o convite
+            # por fora dela. Este botão cobre esse caso sem esperar o cache expirar.
+            if st.button(
+                "Atualizar lista",
+                use_container_width=True,
+                icon=":material/refresh:",
+                key="atualizar_membros",
+                help="Recarrega os membros da organização, incluindo quem acabou de aceitar o convite."
+            ):
+                carregar_membros_organizacao.clear()
+                st.rerun()
 
         self.alunos = [Aluno.de_texto(username) for username in usernames]
 

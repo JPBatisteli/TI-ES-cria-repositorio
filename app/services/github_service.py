@@ -61,6 +61,7 @@ class GithubService:
     PERMISSAO_ESCRITA = "push"
     PERMISSAO_ADMINISTRACAO = "admin"
     PRIVACIDADE_EQUIPE = "closed"
+    PAPEL_DE_MEMBRO = "member"
     ITENS_POR_PAGINA = 100
 
     def __init__(
@@ -481,6 +482,39 @@ class GithubService:
             params["page"] += 1
 
         return sorted(membros, key=str.lower)
+
+    def adicionar_membro_na_organizacao(
+            self,
+            nome_organizacao: str,
+            username: str,
+            papel: str = PAPEL_DE_MEMBRO
+    ) -> str:
+        """
+        Adiciona um usuário à organização, ou convida-o a entrar nela.
+
+        O GitHub não coloca ninguém numa organização sem o seu consentimento: a
+        chamada cria um convite, que fica pendente até ser aceito. Quem já é membro
+        tem apenas o seu papel confirmado, sem novo convite.
+
+        Args:
+            nome_organizacao (str): Nome da organização no GitHub.
+            username (str): Nome de usuário a ser adicionado.
+            papel (str): Papel na organização ('member' ou 'admin').
+
+        Returns:
+            str: Estado da associação ('pending' enquanto o convite não é aceito,
+                 'active' depois disso).
+
+        Raises:
+            GithubServiceError: Se a operação falhar.
+        """
+        url = f"{self.URL_BASE}/orgs/{nome_organizacao}/memberships/{username}"
+        resposta = self._executar("put", url, json={"role": papel})
+
+        if resposta.status_code != 200:
+            self._tratar_erro(resposta, f"adicionar '{username}' à organização '{nome_organizacao}'")
+
+        return resposta.json().get("state", "")
 
     def e_membro(self, nome_organizacao: str, username: str) -> bool:
         """

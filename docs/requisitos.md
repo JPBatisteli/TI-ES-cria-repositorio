@@ -78,6 +78,15 @@
 - **RF51.** Na retomada, os grupos cujo repositório já existe devem ser ignorados sem bloquear a criação dos demais.
 - **RF52.** Os problemas que exigem correção — nome de usuário inválido, conta inexistente, aluno fora da organização e equipe já em uso sem repositório correspondente — devem continuar bloqueando a criação.
 - **RF53.** O sistema deve sinalizar os grupos cujo repositório existe sem a equipe correspondente, por indicarem criação interrompida no meio do grupo.
+- **RF54.** O sistema deve oferecer, em aba própria, a adição de um aluno por vez à organização do campus.
+- **RF55.** O sistema deve oferecer, em aba própria, a adição de vários alunos a partir de um arquivo `.txt` com um nome de usuário por linha.
+- **RF56.** O sistema deve ignorar, na leitura do arquivo, linhas vazias e iniciadas por `#`, aceitar o `@` inicial e vários nomes por linha, e considerar nomes repetidos uma única vez.
+- **RF57.** O sistema deve verificar, antes de convidar, se o aluno já é membro da organização e se a conta existe no GitHub.
+- **RF58.** O sistema deve informar, individualmente por aluno, o desfecho da adição, distinguindo convite enviado, já era membro, entrada efetivada, conta inexistente e nome de usuário inválido.
+- **RF59.** O sistema deve carregar a lista de membros uma única vez por lote e prosseguir com os demais alunos quando a adição de um deles falhar.
+- **RF60.** O sistema deve descartar a listagem de membros em cache após a adição, para que as abas de criação enxerguem quem acabou de entrar.
+- **RF61.** O sistema deve manter a listagem de membros em cache por prazo curto, compatível com a mudança da composição da organização durante o uso.
+- **RF62.** O sistema deve oferecer, ao lado da seleção de alunos, um botão que recarregue a listagem de membros sob demanda.
 
 ## Requisitos Não Funcionais (RNF)
 

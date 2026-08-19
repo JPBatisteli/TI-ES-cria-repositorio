@@ -208,6 +208,52 @@ docker run --rm -p 8501:8501 -e GITHUB_TOKEN=ghp_seu_token ti-es-cria-repositori
 
 ---
 
+## 👤 Adicionar alunos à organização
+
+Duas abas cuidam da etapa **anterior** à criação: as abas de criação só concedem acesso
+a quem já pertence à organização, e apenas reportam quem está fora dela.
+
+| Aba | Entrada |
+|---|---|
+| **Adicionar aluno** | Um nome de usuário digitado |
+| **Adicionar alunos por arquivo** | Arquivo `.txt` com um nome de usuário por linha |
+
+O campus escolhido determina a organização de destino. Antes de convidar, a aplicação
+verifica se o aluno já é membro e se a conta existe — um nome digitado errado geraria
+um convite para ninguém, que ficaria pendente para sempre na organização.
+
+Cada aluno recebe um desfecho próprio:
+
+| Situação | Significado |
+|---|---|
+| Convite enviado | O aluno precisa aceitá-lo para entrar |
+| Já era membro | Nada foi alterado |
+| Entrou na organização | Passou a constar como membro ativo |
+| Não existe conta | Nome de usuário incorreto |
+| Nome de usuário inválido | Fora das regras de formação do GitHub |
+
+O GitHub **não coloca ninguém numa organização sem consentimento**: a aplicação cria o
+convite, e a entrada depende do aceite. Crie os repositórios só depois disso.
+
+A listagem de membros usada na seleção de alunos fica em cache por **5 minutos**, porque
+a composição da organização muda enquanto a ferramenta é usada. O botão **Atualizar
+lista**, ao lado do campo de seleção, força a recarga — útil quando o aluno aceita o
+convite por fora da aplicação, situação que ela não tem como perceber sozinha.
+
+No arquivo, linhas vazias e iniciadas por `#` são ignoradas, o `@` inicial é aceito,
+vários nomes podem ficar na mesma linha separados por vírgula ou ponto e vírgula, e
+nomes repetidos são considerados uma única vez.
+
+### Permissão base da organização
+
+Essas abas pressupõem que a permissão base da organização seja **`none`** (*Settings →
+Member privileges → Base permissions*). Com esse valor, entrar na organização não dá
+acesso a repositório nenhum: o aluno enxerga apenas os públicos e aqueles em que foi
+incluído. Com `read` ou `write`, cada aluno admitido passaria a ver os repositórios de
+todas as turmas.
+
+---
+
 ## 📋 Funcionalidades
 
 - Seleção do campus, que define a organização do GitHub e a sigla do repositório
