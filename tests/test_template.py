@@ -218,8 +218,22 @@ class TestPadraoFixoDeCriacao:
         assert capturado["privado"] is True
 
 
+# Espelho do cadastro, escrito de forma independente para que uma alteração acidental
+# em CAMPI seja detectada. Disciplinas ausentes usam o modelo padrão do campus.
+MODELOS_PROPRIOS = {
+    Disciplina.TI1: "ti1-es-template-repository",
+    Disciplina.TI3: "ti3-es-template-repository",
+}
+MODELO_PADRAO = "TI-ES-GenericTemplate"
+
+ORGANIZACAO_DO_CAMPUS = {
+    "Coração Eucarístico": "ICEI-PUC-Minas-PMGES-TI",
+    "Lourdes": "ICEI-PUC-Minas-PPLES-TI",
+}
+
+
 class TestModeloEspecificoDaDisciplina:
-    """TI1 adota modelo próprio; as demais disciplinas seguem o padrão do campus."""
+    """Algumas disciplinas adotam modelo próprio; as demais seguem o padrão do campus."""
 
     @staticmethod
     def solicitacao(campus: str, disciplina: Disciplina) -> NovoRepositorio:
@@ -231,28 +245,20 @@ class TestModeloEspecificoDaDisciplina:
             criar_equipe=False
         )
 
-    @pytest.mark.parametrize("campus, organizacao", [
-        ("Coração Eucarístico", "ICEI-PUC-Minas-PMGES-TI"),
-        ("Lourdes", "ICEI-PUC-Minas-PPLES-TI"),
-    ])
-    def test_ti1_usa_o_modelo_proprio_da_sua_organizacao(self, campus, organizacao):
-        template = self.solicitacao(campus, Disciplina.TI1).template
+    @pytest.mark.parametrize("campus", list(ORGANIZACAO_DO_CAMPUS))
+    @pytest.mark.parametrize("disciplina", list(Disciplina))
+    def test_modelo_resolvido_para_cada_disciplina(self, campus, disciplina):
+        esperado = MODELOS_PROPRIOS.get(disciplina, MODELO_PADRAO)
+        template = self.solicitacao(campus, disciplina).template
 
-        assert template.nome_completo == f"{organizacao}/ti1-es-template-repository"
+        assert template.nome_completo == f"{ORGANIZACAO_DO_CAMPUS[campus]}/{esperado}"
 
-    @pytest.mark.parametrize("disciplina", [Disciplina.TI2, Disciplina.TI3, Disciplina.TI4,
-                                            Disciplina.TI5, Disciplina.TI6])
-    def test_demais_disciplinas_seguem_o_modelo_padrao(self, disciplina):
-        template = self.solicitacao("Coração Eucarístico", disciplina).template
-
-        assert template.repositorio == "TI-ES-GenericTemplate"
-
-    def test_o_modelo_proprio_fica_na_organizacao_do_campus(self):
+    @pytest.mark.parametrize("disciplina", list(MODELOS_PROPRIOS))
+    def test_modelo_proprio_fica_na_organizacao_do_campus(self, disciplina):
         for nome, campus in CAMPI.items():
-            especifico = campus.template_para(Disciplina.TI1)
-            assert especifico.owner == campus.organizacao, nome
+            assert campus.template_para(disciplina).owner == campus.organizacao, nome
 
-    def test_disciplina_ausente_recai_no_padrao(self):
+    def test_disciplina_sem_modelo_proprio_recai_no_padrao(self):
         campus = obter_campus("Lourdes")
         assert campus.template_para(Disciplina.TI6) == campus.template
 
@@ -260,18 +266,15 @@ class TestModeloEspecificoDaDisciplina:
         campus = obter_campus("Lourdes")
         assert campus.template_para(None) == campus.template
 
-    def test_a_criacao_do_ti1_usa_o_modelo_proprio(self):
+    @pytest.mark.parametrize("disciplina", list(Disciplina))
+    def test_a_criacao_usa_o_modelo_resolvido(self, disciplina):
+        esperado = MODELOS_PROPRIOS.get(disciplina, MODELO_PADRAO)
         service = GithubServiceFalso()
+
         criar_controller(service).criar_repositorio(
-            self.solicitacao("Coração Eucarístico", Disciplina.TI1)
+            self.solicitacao("Coração Eucarístico", disciplina)
         )
 
-        assert service.templates_usados == ["ICEI-PUC-Minas-PMGES-TI/ti1-es-template-repository"]
+        assert service.templates_usados == [f"ICEI-PUC-Minas-PMGES-TI/{esperado}"]
 
-    def test_a_criacao_do_ti2_usa_o_modelo_padrao(self):
-        service = GithubServiceFalso()
-        criar_controller(service).criar_repositorio(
-            self.solicitacao("Coração Eucarístico", Disciplina.TI2)
-        )
 
-        assert service.templates_usados == ["ICEI-PUC-Minas-PMGES-TI/TI-ES-GenericTemplate"]

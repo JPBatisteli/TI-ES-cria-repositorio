@@ -78,7 +78,8 @@ combinação de campus e disciplina — o professor não seleciona nada.
 | Disciplina | Repositório-modelo (na organização do campus) |
 |---|---|
 | TI1 | `ti1-es-template-repository` |
-| TI2 a TI6 | `TI-ES-GenericTemplate` |
+| TI3 | `ti3-es-template-repository` |
+| TI2, TI4, TI5, TI6 | `TI-ES-GenericTemplate` |
 
 Cada campus usa o modelo da **própria organização**. Disciplinas com modelo próprio são
 cadastradas em `templates_por_disciplina`, no dicionário `CAMPI`; as demais recaem no

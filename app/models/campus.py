@@ -73,6 +73,10 @@ CAMPI: Dict[str, Campus] = {
                 owner="ICEI-PUC-Minas-PMGES-TI",
                 repositorio="ti1-es-template-repository"
             ),
+            Disciplina.TI3: Template(
+                owner="ICEI-PUC-Minas-PMGES-TI",
+                repositorio="ti3-es-template-repository"
+            ),
         }
     ),
     "Lourdes": Campus(
@@ -87,6 +91,10 @@ CAMPI: Dict[str, Campus] = {
             Disciplina.TI1: Template(
                 owner="ICEI-PUC-Minas-PPLES-TI",
                 repositorio="ti1-es-template-repository"
+            ),
+            Disciplina.TI3: Template(
+                owner="ICEI-PUC-Minas-PPLES-TI",
+                repositorio="ti3-es-template-repository"
             ),
         }
     ),
