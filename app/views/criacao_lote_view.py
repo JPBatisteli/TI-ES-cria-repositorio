@@ -123,14 +123,18 @@ class CriacaoLoteView:
 
         st.caption(f"Organização no GitHub: [{self.campus.organizacao}]({self.campus.url_organizacao})")
 
-        if self.campus.template:
-            st.caption(
-                f"Repositório-modelo: [{self.campus.template}]({self.campus.template.url}) "
-                "— os repositórios são privados e gerados a partir dele"
-            )
-
         st.subheader("Turma")
         self.disciplina, self.codigo_disciplina = selecionar_turma(self.campus, sufixo_de_chave="_lote")
+
+        # O modelo depende da disciplina, por isso a legenda vem depois da seleção da
+        # turma: antes dela, só seria possível anunciar o modelo padrão do campus.
+        template = self.campus.template_para(self.disciplina)
+
+        if template:
+            st.caption(
+                f"Repositório-modelo: [{template}]({template.url}) "
+                "— os repositórios são privados e gerados a partir dele"
+            )
 
     @staticmethod
     def _exibir_erros(arquivo: ArquivoLote):
